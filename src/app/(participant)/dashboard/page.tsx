@@ -2,7 +2,17 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Medal, ShieldCheck, Target, Trophy, Wallet } from "lucide-react";
+import {
+  ArrowUpRight,
+  CheckCircle2,
+  Clock3,
+  Medal,
+  ShieldCheck,
+  Target,
+  Trophy,
+  Users,
+  Wallet,
+} from "lucide-react";
 import { LeaderboardTable } from "@/components/leaderboard/leaderboard-table";
 import { MatchCard } from "@/components/matches/match-card";
 import { PageHeader } from "@/components/ui/page-header";
@@ -23,15 +33,140 @@ export default function DashboardPage() {
     return <div className="error-panel rounded-3xl p-6">{(error as Error).message}</div>;
   }
 
+  const scoringCards = [
+    {
+      title: "Marcador exacto",
+      points: data.rules.matchScoring.exactScorePoints + data.rules.matchScoring.winnerPoints,
+      description: "Aciertas el marcador completo y recibes el mejor puntaje por partido.",
+      icon: Trophy,
+    },
+    {
+      title: "Ganador correcto",
+      points: data.rules.matchScoring.winnerPoints,
+      description: "Si no aciertas el marcador, aun sumas por elegir bien al ganador.",
+      icon: Target,
+    },
+    {
+      title: "Empate correcto",
+      points: data.rules.matchScoring.drawPoints,
+      description: "Cuando anticipas empate y el juego termina igualado, ganas puntos.",
+      icon: CheckCircle2,
+    },
+    {
+      title: "Campeon acertado",
+      points: data.rules.anticipationScoring.championPoints,
+      description: "Los anticipados pueden darte un salto fuerte en la parte final del torneo.",
+      icon: ShieldCheck,
+    },
+  ];
+
+  const examples = [
+    {
+      title: "Exacto",
+      text: `Si pronosticas 2 - 1 y termina 2 - 1, ganas ${scoringCards[0].points} puntos.`,
+    },
+    {
+      title: "Ganador",
+      text: `Si pronosticas 1 - 0 y termina 3 - 1, ganas ${data.rules.matchScoring.winnerPoints} puntos.`,
+    },
+    {
+      title: "Anticipado",
+      text: `Si tu campeon es correcto, sumas ${data.rules.anticipationScoring.championPoints} puntos.`,
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="Tu panorama"
         title="Resumen general"
-        description="Consulta tus puntos, posicion actual, premio acumulado y los siguientes partidos para pronosticar."
+        description="Consulta tus puntos, entiende como se calculan y revisa los siguientes partidos para acercarte al liderato."
       />
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+        <div className="panel rounded-3xl p-5 sm:p-6">
+          <div className="flex flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Tu estado actual</p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-foreground">Asi vas en la competencia</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                Tu puntaje mezcla aciertos de partidos y anticipados. Mientras mas exactos pegues y mejores
+                picks tengas en fases finales, mas rapido subes.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-primary/15 bg-primary/8 px-4 py-3 text-sm font-medium text-primary">
+              #{data.summary.rank} en la tabla
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="panel-muted rounded-2xl p-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <Users className="size-4 text-primary" />
+                Participantes
+              </div>
+              <p className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-foreground">{data.summary.participants}</p>
+              <p className="mt-2 text-sm text-muted-foreground">Competidores actualmente activos en la polla.</p>
+            </div>
+            <div className="panel-muted rounded-2xl p-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <Wallet className="size-4 text-primary" />
+                Premio actual
+              </div>
+              <p className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-foreground">
+                {formatCurrency(data.summary.prizePool)}
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Aporte individual: {formatCurrency(data.summary.entryFee)}
+              </p>
+            </div>
+            <div className="panel-muted rounded-2xl p-4 sm:col-span-2 lg:col-span-1">
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <Clock3 className="size-4 text-primary" />
+                Partidos evaluados
+              </div>
+              <p className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-foreground">{data.summary.predictionsScored}</p>
+              <p className="mt-2 text-sm text-muted-foreground">Pronosticos tuyos que ya entregaron puntaje oficial.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="panel rounded-3xl p-5 sm:p-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Que hacer para subir</p>
+          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-foreground">Ruta corta para ganar mas</h2>
+          <div className="mt-5 space-y-3">
+            <div className="panel-muted rounded-2xl p-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <ArrowUpRight className="size-4 text-primary" />
+                Prioriza exactos
+              </div>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Cada exacto hoy vale {scoringCards[0].points} puntos, mas que un simple acierto de ganador.
+              </p>
+            </div>
+            <div className="panel-muted rounded-2xl p-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <ShieldCheck className="size-4 text-primary" />
+                No ignores anticipados
+              </div>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Tu campeon correcto puede darte {data.rules.anticipationScoring.championPoints} puntos de una vez.
+              </p>
+            </div>
+            <div className="panel-muted rounded-2xl p-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <Medal className="size-4 text-primary" />
+                Tu progreso actual
+              </div>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Llevas {data.summary.exactHits} exactos, {data.summary.matchPoints} puntos por partidos y {data.summary.anticipationPoints} por anticipados.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-5">
         <StatCard title="Puntos" value={String(data.summary.totalPoints)} description="Puntaje acumulado en la competencia." icon={Trophy} />
         <StatCard title="Partidos" value={String(data.summary.matchPoints)} description="Puntos obtenidos por marcadores y resultados." icon={Target} />
         <StatCard title="Anticipados" value={String(data.summary.anticipationPoints)} description="Puntos obtenidos por clasificados y campeon." icon={ShieldCheck} />
@@ -39,34 +174,79 @@ export default function DashboardPage() {
         <StatCard title="Premio" value={formatCurrency(data.summary.prizePool)} description={`Aporte por persona: ${formatCurrency(data.summary.entryFee)}`} icon={Wallet} />
       </section>
 
-      <section className="panel rounded-3xl p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">Desglose de tu puntaje</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Asi se compone tu total actual entre resultados de partidos y pronosticos anticipados.</p>
+      <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="panel rounded-3xl p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Desglose de tu puntaje</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Asi se compone tu total actual entre resultados de partidos y pronosticos anticipados.
+              </p>
+            </div>
+            <div className="rounded-full border border-primary/15 bg-primary/8 px-4 py-2 text-sm font-medium text-primary">
+              Exactos acertados: {data.summary.exactHits}
+            </div>
           </div>
-          <div className="rounded-full border border-primary/15 bg-primary/8 px-4 py-2 text-sm font-medium text-primary">
-            Exactos acertados: {data.summary.exactHits}
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
+            <div className="panel-muted rounded-2xl px-4 py-4">
+              <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Total</p>
+              <p className="mt-2 text-2xl font-semibold text-foreground">{data.summary.totalPoints}</p>
+            </div>
+            <div className="panel-muted rounded-2xl px-4 py-4">
+              <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Por partidos</p>
+              <p className="mt-2 text-2xl font-semibold text-foreground">{data.summary.matchPoints}</p>
+            </div>
+            <div className="panel-muted rounded-2xl px-4 py-4">
+              <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Por anticipados</p>
+              <p className="mt-2 text-2xl font-semibold text-foreground">{data.summary.anticipationPoints}</p>
+            </div>
           </div>
         </div>
-        <div className="mt-4 grid gap-4 md:grid-cols-3">
-          <div className="panel-muted rounded-2xl px-4 py-4">
-            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Total</p>
-            <p className="mt-2 text-2xl font-semibold text-foreground">{data.summary.totalPoints}</p>
+
+        <div className="panel rounded-3xl p-5">
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">Como ganas puntos</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Estas son las reglas que mas te impactan en el ranking.</p>
           </div>
-          <div className="panel-muted rounded-2xl px-4 py-4">
-            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Por partidos</p>
-            <p className="mt-2 text-2xl font-semibold text-foreground">{data.summary.matchPoints}</p>
-          </div>
-          <div className="panel-muted rounded-2xl px-4 py-4">
-            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Por anticipados</p>
-            <p className="mt-2 text-2xl font-semibold text-foreground">{data.summary.anticipationPoints}</p>
+          <div className="mt-4 grid gap-3">
+            {scoringCards.map((item) => {
+              const Icon = item.icon;
+              return (
+                <div key={item.title} className="panel-muted rounded-2xl p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                      <Icon className="size-4 text-primary" />
+                      {item.title}
+                    </div>
+                    <span className="rounded-full border border-primary/15 bg-primary/8 px-3 py-1 text-sm font-semibold text-primary">
+                      +{item.points}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{item.description}</p>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
 
-      <section>
+      <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
         <LeaderboardTable entries={data.leaderboardPreview} prizePool={data.summary.prizePool} />
+
+        <div className="panel rounded-3xl p-5">
+          <h2 className="text-lg font-semibold text-foreground">Ejemplos para leer tu puntaje</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Asi se traduce el sistema de puntos en situaciones reales del torneo.
+          </p>
+          <div className="mt-4 space-y-3">
+            {examples.map((example) => (
+              <div key={example.title} className="panel-muted rounded-2xl p-4">
+                <p className="text-sm font-semibold text-foreground">{example.title}</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">{example.text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
       </section>
 
       <section className="space-y-4">

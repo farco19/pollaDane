@@ -133,6 +133,10 @@ export async function getParticipantDashboard(userId: string) {
       entryFee: settings.entryFee,
       participants: settings.participants,
     },
+    rules: {
+      matchScoring: settings.matchScoring,
+      anticipationScoring: settings.anticipationScoring,
+    },
     upcomingMatches,
     recentPredictions,
     leaderboardPreview: leaderboardData.leaderboard.slice(0, 5),

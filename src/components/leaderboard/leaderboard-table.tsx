@@ -31,7 +31,49 @@ export function LeaderboardTable({ entries, prizePool }: LeaderboardTableProps) 
           </div>
         )}
       </div>
-      <div className="overflow-x-auto">
+      <div className="grid gap-4 p-4 md:hidden">
+        {entries.map((entry) => (
+          <article key={entry.userId} className="panel-muted rounded-2xl p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <span className="inline-flex min-w-12 justify-center rounded-full border border-border bg-card px-3 py-1 text-sm font-semibold text-foreground">
+                  #{entry.rank}
+                </span>
+                <h4 className="mt-3 truncate text-base font-semibold text-foreground">{entry.name}</h4>
+              </div>
+              <div className="text-right">
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Puntos</p>
+                <p className="mt-1 text-2xl font-semibold text-primary">{entry.totalPoints}</p>
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+              <div className="rounded-xl border border-border bg-card px-3 py-3">
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Partidos</p>
+                <p className="mt-1 font-semibold text-foreground">{entry.matchPoints}</p>
+              </div>
+              <div className="rounded-xl border border-border bg-card px-3 py-3">
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Anticipados</p>
+                <p className="mt-1 font-semibold text-foreground">{entry.anticipationPoints}</p>
+              </div>
+              <div className="rounded-xl border border-border bg-card px-3 py-3">
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Exactos</p>
+                <p className="mt-1 font-semibold text-foreground">{entry.exactHits}</p>
+              </div>
+              <div className="rounded-xl border border-border bg-card px-3 py-3">
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Ganadores</p>
+                <p className="mt-1 font-semibold text-foreground">{entry.winnerHits}</p>
+              </div>
+            </div>
+
+            <div className="mt-3 rounded-xl border border-dashed border-border px-3 py-3 text-sm text-muted-foreground">
+              Empates acertados: <span className="font-semibold text-foreground">{entry.drawHits}</span>
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <div className="hidden overflow-x-auto md:block">
         <table className="min-w-full text-left text-sm">
           <thead className="bg-muted text-muted-foreground">
             <tr>
