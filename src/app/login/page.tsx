@@ -96,7 +96,6 @@ export default function LoginPage() {
           </form>
 
           <div className="panel-muted mt-6 rounded-2xl p-4 text-sm text-muted-foreground">
-            <p>Admin demo: admin@pollamundial.com / Admin1234</p>
             <p className="mt-2">
               Si ya pagaste y tienes codigo,{" "}
               <Link href="/registro" className="font-medium text-primary">
