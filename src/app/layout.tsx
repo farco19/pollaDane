@@ -13,6 +13,12 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Polla DANE",
   description: "Pronosticos, resultados y administracion deportiva en una experiencia clara, profesional y responsiva.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Polla DANE",
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

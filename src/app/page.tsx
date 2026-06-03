@@ -13,6 +13,7 @@ import {
   Trophy,
   Users,
 } from "lucide-react";
+import { HomePromoModal } from "@/components/marketing/home-promo-modal";
 import { getPublicSettings } from "@/lib/server/data";
 import { formatCurrency } from "@/lib/utils";
 
@@ -102,6 +103,8 @@ export default async function HomePage() {
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+      <HomePromoModal />
+
       <section className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
         <div className="space-y-8">
           <div className="space-y-5">

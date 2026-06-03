@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { LeaderboardTable } from "@/components/leaderboard/leaderboard-table";
 import { MatchCard } from "@/components/matches/match-card";
+import { PushNotificationManager } from "@/components/push/push-notification-manager";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
 import { apiFetch, formatCurrency } from "@/lib/utils";
@@ -83,6 +84,8 @@ export default function DashboardPage() {
         description="Consulta tus puntos, entiende como se calculan y revisa los siguientes partidos para acercarte al liderato."
       />
 
+      <PushNotificationManager />
+
       <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
         <div className="panel rounded-3xl p-5 sm:p-6">
           <div className="flex flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-start sm:justify-between">
@@ -105,15 +108,15 @@ export default function DashboardPage() {
                 <Users className="size-4 text-primary" />
                 Participantes
               </div>
-              <p className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-foreground">{data.summary.participants}</p>
+              <p className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-foreground">{data.summary.participants}</p>
               <p className="mt-2 text-sm text-muted-foreground">Competidores actualmente activos en la polla.</p>
             </div>
             <div className="panel-muted rounded-2xl p-4">
               <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                 <Wallet className="size-4 text-primary" />
-                Premio actual
+                Acumulado
               </div>
-              <p className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-foreground">
+              <p className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-foreground">
                 {formatCurrency(data.summary.prizePool)}
               </p>
               <p className="mt-2 text-sm text-muted-foreground">
@@ -123,10 +126,10 @@ export default function DashboardPage() {
             <div className="panel-muted rounded-2xl p-4 sm:col-span-2 lg:col-span-1">
               <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                 <Clock3 className="size-4 text-primary" />
-                Partidos evaluados
+                Evaluados
               </div>
-              <p className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-foreground">{data.summary.predictionsScored}</p>
-              <p className="mt-2 text-sm text-muted-foreground">Pronosticos tuyos que ya entregaron puntaje oficial.</p>
+              <p className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-foreground">{data.summary.predictionsScored}</p>
+              <p className="mt-2 text-sm text-muted-foreground">Pronósticos tuyos que ya entregaron puntaje oficial.</p>
             </div>
           </div>
         </div>
@@ -184,7 +187,7 @@ export default function DashboardPage() {
               </p>
             </div>
             <div className="rounded-full border border-primary/15 bg-primary/8 px-4 py-2 text-sm font-medium text-primary">
-              Exactos acertados: {data.summary.exactHits}
+              Exactos: {data.summary.exactHits}
             </div>
           </div>
           <div className="mt-4 grid gap-4 md:grid-cols-3">
