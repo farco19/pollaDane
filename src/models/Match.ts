@@ -1,5 +1,6 @@
-﻿import { model, models, Schema, type Model } from "mongoose";
+import { model, models, Schema, type Model } from "mongoose";
 import type { IMatch } from "@/types/domain";
+import "@/models/Team";
 
 const MatchSchema = new Schema<IMatch>(
   {

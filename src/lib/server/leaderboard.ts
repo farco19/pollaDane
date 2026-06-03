@@ -1,3 +1,5 @@
+import { connectToDatabase } from "@/lib/db";
+import { ensureSeedData } from "@/lib/seed";
 import { calculatePrizePool } from "@/lib/server/prize";
 import { buildAnticipationActuals, calculateAnticipationPoints } from "@/lib/server/scoring/anticipation";
 import { defaultAnticipationScoring } from "@/lib/server/scoring/rules";
@@ -8,6 +10,9 @@ import { TournamentSettings } from "@/models/TournamentSettings";
 import { User } from "@/models/User";
 
 export async function buildLeaderboard() {
+  await connectToDatabase();
+  await ensureSeedData();
+
   const [users, predictions, settings, matches, anticipationPredictions] = await Promise.all([
     User.find({ role: "participant", isActive: true }).lean(),
     Prediction.find({ pointsAwarded: { $ne: null } }).lean(),
