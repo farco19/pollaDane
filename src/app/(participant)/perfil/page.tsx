@@ -3,6 +3,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/ui/page-header";
+import { anticipationStageLimits } from "@/lib/anticipation";
 import { apiFetch, formatCurrency } from "@/lib/utils";
 
 export default function ProfilePage() {
@@ -79,7 +80,7 @@ export default function ProfilePage() {
                 </p>
               </div>
               <div className="rounded-full border border-primary/15 bg-primary/8 px-4 py-2 text-sm font-medium text-primary">
-                Maximo teorico anticipados: {(16 * data.settings.anticipationScoring.groupQualifiedPoints) + (16 * data.settings.anticipationScoring.roundOf16Points) + (8 * data.settings.anticipationScoring.quarterFinalPoints) + (4 * data.settings.anticipationScoring.semiFinalPoints) + (2 * data.settings.anticipationScoring.finalPoints) + data.settings.anticipationScoring.championPoints} pts
+                Maximo teorico anticipados: {(16 * data.settings.anticipationScoring.groupQualifiedPoints) + (anticipationStageLimits.bestThirdTeamIds * data.settings.anticipationScoring.bestThirdPoints) + (anticipationStageLimits.roundOf16TeamIds * data.settings.anticipationScoring.roundOf16Points) + (anticipationStageLimits.quarterFinalTeamIds * data.settings.anticipationScoring.quarterFinalPoints) + (anticipationStageLimits.semiFinalTeamIds * data.settings.anticipationScoring.semiFinalPoints) + (anticipationStageLimits.finalTeamIds * data.settings.anticipationScoring.finalPoints) + data.settings.anticipationScoring.championPoints} pts
               </div>
             </div>
 
@@ -89,7 +90,7 @@ export default function ProfilePage() {
                 <div className="mt-4 space-y-3 text-sm">
                   <div className="flex items-center justify-between gap-4 rounded-2xl bg-card px-4 py-3">
                     <span className="text-muted-foreground">Marcador exacto</span>
-                    <span className="font-semibold text-foreground">{data.settings.matchScoring.exactScorePoints} pts</span>
+                    <span className="font-semibold text-foreground">{data.settings.matchScoring.exactScorePoints} pts base</span>
                   </div>
                   <div className="flex items-center justify-between gap-4 rounded-2xl bg-card px-4 py-3">
                     <span className="text-muted-foreground">Ganador sin exacto</span>
@@ -114,6 +115,10 @@ export default function ProfilePage() {
                     <span className="font-semibold text-foreground">{data.settings.anticipationScoring.groupQualifiedPoints} pts por equipo</span>
                   </div>
                   <div className="flex items-center justify-between gap-4 rounded-2xl bg-card px-4 py-3">
+                    <span className="text-muted-foreground">Mejores terceros</span>
+                    <span className="font-semibold text-foreground">{data.settings.anticipationScoring.bestThirdPoints} pts por equipo</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 rounded-2xl bg-card px-4 py-3">
                     <span className="text-muted-foreground">Pasa a octavos</span>
                     <span className="font-semibold text-foreground">{data.settings.anticipationScoring.roundOf16Points} pts por equipo</span>
                   </div>
@@ -134,6 +139,9 @@ export default function ProfilePage() {
                     <span className="font-semibold text-foreground">{data.settings.anticipationScoring.championPoints} pts</span>
                   </div>
                 </div>
+                <p className="mt-4 text-xs leading-5 text-muted-foreground">
+                  Si aciertas el marcador exacto, tambien sumas los puntos del ganador correcto o del empate.
+                </p>
               </div>
             </div>
           </div>
@@ -142,4 +150,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-

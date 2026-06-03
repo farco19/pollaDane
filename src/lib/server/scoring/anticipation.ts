@@ -1,9 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { getChampionTeamId, getGroupTopTwo, getQualifiedTeamIdsByStage } from "@/lib/server/tournament";
+import { getBestThirdTeamIds, getChampionTeamId, getGroupTopTwo, getQualifiedTeamIdsByStage } from "@/lib/server/tournament";
 
 export function buildAnticipationActuals(matches: any[]) {
   return {
     groupTopTwo: getGroupTopTwo(matches),
+    bestThirdTeamIds: new Set(getBestThirdTeamIds(matches)),
     roundOf16TeamIds: new Set(getQualifiedTeamIdsByStage(matches, "round_of_16")),
     quarterFinalTeamIds: new Set(getQualifiedTeamIdsByStage(matches, "quarter_final")),
     semiFinalTeamIds: new Set(getQualifiedTeamIdsByStage(matches, "semi_final")),
@@ -17,6 +18,7 @@ export function calculateAnticipationPoints(
   actuals: ReturnType<typeof buildAnticipationActuals>,
   scoring: {
     groupQualifiedPoints: number;
+    bestThirdPoints: number;
     roundOf16Points: number;
     quarterFinalPoints: number;
     semiFinalPoints: number;
@@ -35,6 +37,12 @@ export function calculateAnticipationPoints(
 
     if (groupPrediction.secondTeamId && actualTopTwo.includes(String(groupPrediction.secondTeamId))) {
       totalPoints += scoring.groupQualifiedPoints;
+    }
+  }
+
+  for (const teamId of prediction.stageSelections?.bestThirdTeamIds ?? []) {
+    if (actuals.bestThirdTeamIds.has(String(teamId))) {
+      totalPoints += scoring.bestThirdPoints;
     }
   }
 

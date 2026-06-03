@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
+import { anticipationStageLimits } from "@/lib/anticipation";
 import { apiFetch, formatCurrency } from "@/lib/utils";
 
 export default function SettingsPage() {
@@ -28,6 +29,7 @@ export default function SettingsPage() {
       },
       anticipationScoring: {
         groupQualifiedPoints: data.anticipationScoring?.groupQualifiedPoints ?? 2,
+        bestThirdPoints: data.anticipationScoring?.bestThirdPoints ?? 2,
         roundOf16Points: data.anticipationScoring?.roundOf16Points ?? 5,
         quarterFinalPoints: data.anticipationScoring?.quarterFinalPoints ?? 10,
         semiFinalPoints: data.anticipationScoring?.semiFinalPoints ?? 15,
@@ -134,7 +136,7 @@ export default function SettingsPage() {
           <div className="grid gap-4 xl:grid-cols-2">
             <div className="panel rounded-3xl p-6">
               <h2 className="text-xl font-semibold text-foreground">Puntos por marcador</h2>
-              <p className="mt-2 text-sm text-muted-foreground">Estos valores se aplican a los partidos y se recalculan en el ranking si cambian.</p>
+              <p className="mt-2 text-sm text-muted-foreground">Si el usuario acierta el marcador exacto, suma estos puntos mas los del ganador o empate correcto.</p>
               <div className="mt-5 grid gap-3 md:grid-cols-2">
                 <div>
                   <label className="field-label">Marcador exacto</label>
@@ -164,6 +166,10 @@ export default function SettingsPage() {
                   <input type="number" min={0} value={String(form.anticipationScoring.groupQualifiedPoints)} onChange={(e) => updateNestedNumberField("anticipationScoring", "groupQualifiedPoints", e.target.value)} className="field-input" />
                 </div>
                 <div>
+                  <label className="field-label">Mejores terceros</label>
+                  <input type="number" min={0} value={String(form.anticipationScoring.bestThirdPoints)} onChange={(e) => updateNestedNumberField("anticipationScoring", "bestThirdPoints", e.target.value)} className="field-input" />
+                </div>
+                <div>
                   <label className="field-label">Pasa a octavos</label>
                   <input type="number" min={0} value={String(form.anticipationScoring.roundOf16Points)} onChange={(e) => updateNestedNumberField("anticipationScoring", "roundOf16Points", e.target.value)} className="field-input" />
                 </div>
@@ -184,6 +190,17 @@ export default function SettingsPage() {
                   <input type="number" min={0} value={String(form.anticipationScoring.championPoints)} onChange={(e) => updateNestedNumberField("anticipationScoring", "championPoints", e.target.value)} className="field-input" />
                 </div>
               </div>
+              <p className="mt-4 text-xs leading-5 text-muted-foreground">
+                Maximo teorico en anticipados:{" "}
+                {16 * form.anticipationScoring.groupQualifiedPoints +
+                  anticipationStageLimits.bestThirdTeamIds * form.anticipationScoring.bestThirdPoints +
+                  anticipationStageLimits.roundOf16TeamIds * form.anticipationScoring.roundOf16Points +
+                  anticipationStageLimits.quarterFinalTeamIds * form.anticipationScoring.quarterFinalPoints +
+                  anticipationStageLimits.semiFinalTeamIds * form.anticipationScoring.semiFinalPoints +
+                  anticipationStageLimits.finalTeamIds * form.anticipationScoring.finalPoints +
+                  form.anticipationScoring.championPoints}{" "}
+                pts
+              </p>
             </div>
           </div>
         </>

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { anticipationStageLimits } from "@/lib/anticipation";
 
 const objectIdSchema = z.string().regex(/^[a-f\d]{24}$/i, "Id invalido");
 
@@ -20,6 +21,7 @@ export const anticipationPredictionSchema = z.object({
       }),
   ),
   stageSelections: z.object({
+    bestThirdTeamIds: teamIdArraySchema.max(anticipationStageLimits.bestThirdTeamIds),
     roundOf16TeamIds: teamIdArraySchema,
     quarterFinalTeamIds: teamIdArraySchema,
     semiFinalTeamIds: teamIdArraySchema,

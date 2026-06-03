@@ -49,6 +49,13 @@ function getMatchWinner(match: any) {
   return match.homeScore > match.awayScore ? String(match.homeTeamId?._id ?? match.homeTeamId) : String(match.awayTeamId?._id ?? match.awayTeamId);
 }
 
+type GroupStandingEntry = {
+  teamId: string;
+  points: number;
+  goalDifference: number;
+  goalsFor: number;
+};
+
 export function getQualifiedTeamIdsByStage(matches: any[], stage: string) {
   const teamIds = new Set<string>();
 
@@ -69,7 +76,14 @@ export function getChampionTeamId(matches: any[]) {
   return finalMatch ? getMatchWinner(finalMatch) : null;
 }
 
-export function getGroupTopTwo(matches: any[]) {
+function sortStandings(a: GroupStandingEntry, b: GroupStandingEntry) {
+  if (b.points !== a.points) return b.points - a.points;
+  if (b.goalDifference !== a.goalDifference) return b.goalDifference - a.goalDifference;
+  if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
+  return a.teamId.localeCompare(b.teamId, "es");
+}
+
+export function getGroupStandings(matches: any[]) {
   const groupMatches = matches.filter((match) => match.stage === "group" && match.group);
   const grouped = new Map<string, any[]>();
 
@@ -78,7 +92,7 @@ export function getGroupTopTwo(matches: any[]) {
     grouped.set(group, [...(grouped.get(group) ?? []), match]);
   }
 
-  const result = new Map<string, string[]>();
+  const result = new Map<string, GroupStandingEntry[]>();
 
   for (const [group, items] of grouped.entries()) {
     if (!items.length || items.some((match) => match.status !== "finished")) {
@@ -113,18 +127,43 @@ export function getGroupTopTwo(matches: any[]) {
       table.set(awayTeamId, away);
     }
 
-    const topTwo = Array.from(table.values())
-      .sort((a, b) => {
-        if (b.points !== a.points) return b.points - a.points;
-        if (b.goalDifference !== a.goalDifference) return b.goalDifference - a.goalDifference;
-        if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
-        return a.teamId.localeCompare(b.teamId, "es");
-      })
-      .slice(0, 2)
-      .map((entry) => entry.teamId);
-
-    result.set(group, topTwo);
+    result.set(group, Array.from(table.values()).sort(sortStandings));
   }
 
   return result;
+}
+
+export function getGroupTopTwo(matches: any[]) {
+  const standings = getGroupStandings(matches);
+  const result = new Map<string, string[]>();
+
+  for (const [group, items] of standings.entries()) {
+    result.set(
+      group,
+      items.slice(0, 2).map((entry) => entry.teamId),
+    );
+  }
+
+  return result;
+}
+
+export function getBestThirdTeamIds(matches: any[], limit = 8) {
+  const standings = getGroupStandings(matches);
+  const groupMatches = matches.filter((match) => match.stage === "group" && match.group);
+  const groupNames = new Set(groupMatches.map((match) => String(match.group)));
+
+  if (!groupNames.size || standings.size !== groupNames.size) {
+    return [];
+  }
+
+  const thirdPlaceTeams = Array.from(standings.values())
+    .map((items) => items[2] ?? null)
+    .filter((entry): entry is GroupStandingEntry => Boolean(entry))
+    .sort(sortStandings);
+
+  if (thirdPlaceTeams.length < limit) {
+    return [];
+  }
+
+  return thirdPlaceTeams.slice(0, limit).map((entry) => entry.teamId);
 }

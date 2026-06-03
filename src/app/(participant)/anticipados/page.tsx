@@ -6,25 +6,53 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
+import {
+  anticipationStageLimits,
+  getAnticipationCandidatePools,
+  sanitizeAnticipationForm,
+  type AnticipationFormShape,
+} from "@/lib/anticipation";
 import { apiFetch } from "@/lib/utils";
 
-const stageLimits = {
-  roundOf16TeamIds: 16,
-  quarterFinalTeamIds: 8,
-  semiFinalTeamIds: 4,
-  finalTeamIds: 2,
-} as const;
+type AnticipationForm = AnticipationFormShape;
 
-type AnticipationForm = {
-  groupRankings: Array<{ group: string; firstTeamId: string | null; secondTeamId: string | null }>;
-  stageSelections: {
-    roundOf16TeamIds: string[];
-    quarterFinalTeamIds: string[];
-    semiFinalTeamIds: string[];
-    finalTeamIds: string[];
-    championTeamId: string | null;
+function createEmptyForm(groups: Array<{ group: string }>): AnticipationForm {
+  return {
+    groupRankings: groups.map((group) => ({
+      group: group.group,
+      firstTeamId: null,
+      secondTeamId: null,
+    })),
+    stageSelections: {
+      bestThirdTeamIds: [],
+      roundOf16TeamIds: [],
+      quarterFinalTeamIds: [],
+      semiFinalTeamIds: [],
+      finalTeamIds: [],
+      championTeamId: null,
+    },
   };
-};
+}
+
+function getPotentialAnticipationPoints(scoring: {
+  groupQualifiedPoints: number;
+  bestThirdPoints: number;
+  roundOf16Points: number;
+  quarterFinalPoints: number;
+  semiFinalPoints: number;
+  finalPoints: number;
+  championPoints: number;
+}) {
+  return (
+    16 * scoring.groupQualifiedPoints +
+    anticipationStageLimits.bestThirdTeamIds * scoring.bestThirdPoints +
+    anticipationStageLimits.roundOf16TeamIds * scoring.roundOf16Points +
+    anticipationStageLimits.quarterFinalTeamIds * scoring.quarterFinalPoints +
+    anticipationStageLimits.semiFinalTeamIds * scoring.semiFinalPoints +
+    anticipationStageLimits.finalTeamIds * scoring.finalPoints +
+    scoring.championPoints
+  );
+}
 
 function formatDateLabel(value: string | null) {
   if (!value) {
@@ -75,28 +103,59 @@ export default function AnticipationPage() {
   const baseForm = useMemo(
     () =>
       data
-        ? {
-      groupRankings:
-        data.prediction?.groupRankings ??
-        (data.groups ?? []).map((group: any) => ({
-          group: group.group,
-          firstTeamId: null,
-          secondTeamId: null,
-        })),
-      stageSelections:
-        data.prediction?.stageSelections ??
-        {
-          roundOf16TeamIds: [],
-          quarterFinalTeamIds: [],
-          semiFinalTeamIds: [],
-          finalTeamIds: [],
-          championTeamId: null,
-        },
-    }
+        ? sanitizeAnticipationForm(
+            data.prediction
+              ? {
+                  groupRankings: data.prediction.groupRankings,
+                  stageSelections: {
+                    bestThirdTeamIds: data.prediction.stageSelections?.bestThirdTeamIds ?? [],
+                    roundOf16TeamIds: data.prediction.stageSelections?.roundOf16TeamIds ?? [],
+                    quarterFinalTeamIds: data.prediction.stageSelections?.quarterFinalTeamIds ?? [],
+                    semiFinalTeamIds: data.prediction.stageSelections?.semiFinalTeamIds ?? [],
+                    finalTeamIds: data.prediction.stageSelections?.finalTeamIds ?? [],
+                    championTeamId: data.prediction.stageSelections?.championTeamId ?? null,
+                  },
+                }
+              : createEmptyForm(data.groups ?? []),
+          )
         : null,
     [data],
   );
   const form = draftForm ?? baseForm;
+  const candidatePools = useMemo(() => (form ? getAnticipationCandidatePools(form) : null), [form]);
+  const candidateSets = useMemo(
+    () =>
+      candidatePools
+        ? {
+            groupQualified: new Set(candidatePools.groupQualifiedTeamIds),
+            roundOf16: new Set(candidatePools.roundOf16CandidateIds),
+            quarterFinal: new Set(candidatePools.quarterFinalCandidateIds),
+            semiFinal: new Set(candidatePools.semiFinalCandidateIds),
+            final: new Set(candidatePools.finalCandidateIds),
+          }
+        : null,
+    [candidatePools],
+  );
+  const bestThirdCandidates = useMemo(
+    () => (data?.teams ?? []).filter((team: any) => team.group && !candidateSets?.groupQualified.has(team._id)),
+    [data?.teams, candidateSets],
+  );
+  const roundOf16Candidates = useMemo(
+    () => (data?.teams ?? []).filter((team: any) => candidateSets?.roundOf16.has(team._id)),
+    [data?.teams, candidateSets],
+  );
+  const quarterFinalCandidates = useMemo(
+    () => (data?.teams ?? []).filter((team: any) => candidateSets?.quarterFinal.has(team._id)),
+    [data?.teams, candidateSets],
+  );
+  const semiFinalCandidates = useMemo(
+    () => (data?.teams ?? []).filter((team: any) => candidateSets?.semiFinal.has(team._id)),
+    [data?.teams, candidateSets],
+  );
+  const finalCandidates = useMemo(
+    () => (data?.teams ?? []).filter((team: any) => candidateSets?.final.has(team._id)),
+    [data?.teams, candidateSets],
+  );
 
   const mutation = useMutation({
     mutationFn: () => apiFetch("/api/participant/anticipation", { method: "POST", body: JSON.stringify(form) }),
@@ -112,7 +171,7 @@ export default function AnticipationPage() {
   const updateForm = (updater: (current: AnticipationForm) => AnticipationForm) =>
     setDraftForm((current) => {
       const resolved = current ?? baseForm;
-      return resolved ? updater(resolved) : current;
+      return resolved ? sanitizeAnticipationForm(updater(resolved)) : current;
     });
 
   function updateGroupSelection(group: string, slot: "firstTeamId" | "secondTeamId", teamId: string) {
@@ -140,13 +199,13 @@ export default function AnticipationPage() {
     }));
   }
 
-  function toggleStageSelection(stageKey: keyof typeof stageLimits, teamId: string) {
+  function toggleStageSelection(stageKey: keyof typeof anticipationStageLimits, teamId: string) {
     updateForm((current) => {
       const values = current.stageSelections[stageKey];
       const exists = values.includes(teamId);
 
-      if (!exists && values.length >= stageLimits[stageKey]) {
-        toast.error(`Solo puedes seleccionar ${stageLimits[stageKey]} equipos en esta fase`);
+      if (!exists && values.length >= anticipationStageLimits[stageKey]) {
+        toast.error(`Solo puedes seleccionar ${anticipationStageLimits[stageKey]} equipos en esta fase`);
         return current;
       }
 
@@ -165,7 +224,7 @@ export default function AnticipationPage() {
       <PageHeader
         eyebrow="Anticipados"
         title="Pronosticos anticipados"
-        description="Define antes del primer partido tus clasificados por grupo, equipos que avanzan por fase y el campeon del torneo."
+        description="Define antes del primer partido tus clasificados por grupo, mejores terceros, equipos que avanzan por fase y el campeon del torneo."
       />
 
       <div className="panel rounded-3xl p-6">
@@ -189,12 +248,16 @@ export default function AnticipationPage() {
             <div className="panel-muted rounded-3xl p-5">
               <h2 className="text-lg font-semibold text-foreground">Resumen de puntos</h2>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Cada acierto suma por equipo. Puedes acertar uno, varios o todos dentro de cada bloque.
+                Cada acierto suma por equipo. Al cambiar una fase, las selecciones incompatibles de las siguientes se limpian automaticamente.
               </p>
               <div className="mt-4 space-y-3 text-sm">
                 <div className="flex items-center justify-between gap-4 rounded-2xl bg-card px-4 py-3">
                   <span className="text-muted-foreground">Top 2 por grupo</span>
                   <span className="font-semibold text-foreground">{data.settings.anticipationScoring.groupQualifiedPoints} pts</span>
+                </div>
+                <div className="flex items-center justify-between gap-4 rounded-2xl bg-card px-4 py-3">
+                  <span className="text-muted-foreground">Mejores terceros</span>
+                  <span className="font-semibold text-foreground">{data.settings.anticipationScoring.bestThirdPoints} pts</span>
                 </div>
                 <div className="flex items-center justify-between gap-4 rounded-2xl bg-card px-4 py-3">
                   <span className="text-muted-foreground">Pasa a octavos</span>
@@ -230,30 +293,39 @@ export default function AnticipationPage() {
                   <p className="mt-2 text-lg font-semibold text-foreground">{16 * data.settings.anticipationScoring.groupQualifiedPoints} pts</p>
                 </div>
                 <div className="rounded-2xl bg-card px-4 py-4">
+                  <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Mejores terceros</p>
+                  <p className="mt-2 text-lg font-semibold text-foreground">
+                    {anticipationStageLimits.bestThirdTeamIds * data.settings.anticipationScoring.bestThirdPoints} pts
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-card px-4 py-4">
                   <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Octavos</p>
-                  <p className="mt-2 text-lg font-semibold text-foreground">{16 * data.settings.anticipationScoring.roundOf16Points} pts</p>
+                  <p className="mt-2 text-lg font-semibold text-foreground">
+                    {anticipationStageLimits.roundOf16TeamIds * data.settings.anticipationScoring.roundOf16Points} pts
+                  </p>
                 </div>
                 <div className="rounded-2xl bg-card px-4 py-4">
                   <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Cuartos</p>
-                  <p className="mt-2 text-lg font-semibold text-foreground">{8 * data.settings.anticipationScoring.quarterFinalPoints} pts</p>
+                  <p className="mt-2 text-lg font-semibold text-foreground">
+                    {anticipationStageLimits.quarterFinalTeamIds * data.settings.anticipationScoring.quarterFinalPoints} pts
+                  </p>
                 </div>
                 <div className="rounded-2xl bg-card px-4 py-4">
                   <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Semifinal</p>
-                  <p className="mt-2 text-lg font-semibold text-foreground">{4 * data.settings.anticipationScoring.semiFinalPoints} pts</p>
+                  <p className="mt-2 text-lg font-semibold text-foreground">
+                    {anticipationStageLimits.semiFinalTeamIds * data.settings.anticipationScoring.semiFinalPoints} pts
+                  </p>
                 </div>
                 <div className="rounded-2xl bg-card px-4 py-4">
                   <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Final</p>
-                  <p className="mt-2 text-lg font-semibold text-foreground">{2 * data.settings.anticipationScoring.finalPoints} pts</p>
+                  <p className="mt-2 text-lg font-semibold text-foreground">
+                    {anticipationStageLimits.finalTeamIds * data.settings.anticipationScoring.finalPoints} pts
+                  </p>
                 </div>
                 <div className="rounded-2xl bg-primary/10 px-4 py-4">
                   <p className="text-xs uppercase tracking-[0.16em] text-primary">Total maximo</p>
                   <p className="mt-2 text-lg font-semibold text-primary">
-                    {(16 * data.settings.anticipationScoring.groupQualifiedPoints) +
-                      (16 * data.settings.anticipationScoring.roundOf16Points) +
-                      (8 * data.settings.anticipationScoring.quarterFinalPoints) +
-                      (4 * data.settings.anticipationScoring.semiFinalPoints) +
-                      (2 * data.settings.anticipationScoring.finalPoints) +
-                      data.settings.anticipationScoring.championPoints} pts
+                    {getPotentialAnticipationPoints(data.settings.anticipationScoring)} pts
                   </p>
                 </div>
               </div>
@@ -329,35 +401,70 @@ export default function AnticipationPage() {
 
           <section className="space-y-4">
             <div className="panel rounded-3xl p-6">
-              <h2 className="text-xl font-semibold text-foreground">Clasificados por fase</h2>
+              <h2 className="text-xl font-semibold text-foreground">Mejores terceros</h2>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Selecciona los equipos que crees que alcanzaran cada ronda. Los puntos se otorgan por cada equipo acertado.
+                Selecciona hasta {anticipationStageLimits.bestThirdTeamIds} equipos entre los que no dejaste en top 2. Estos se suman al pool disponible para definir octavos.
               </p>
             </div>
+            <div className="panel rounded-3xl p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">Terceros candidatos</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Seleccionados: {form.stageSelections.bestThirdTeamIds.length} / {anticipationStageLimits.bestThirdTeamIds}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                {bestThirdCandidates.map((team: any) => (
+                  <TeamChip
+                    key={`best-third-${team._id}`}
+                    team={team}
+                    active={form.stageSelections.bestThirdTeamIds.includes(team._id)}
+                    onClick={() => toggleStageSelection("bestThirdTeamIds", team._id)}
+                  />
+                ))}
+              </div>
+              {bestThirdCandidates.length === 0 ? (
+                <p className="mt-4 text-sm text-muted-foreground">Primero completa los clasificados por grupo para habilitar este bloque.</p>
+              ) : null}
+            </div>
+          </section>
 
+          <section className="space-y-4">
+            <div className="panel rounded-3xl p-6">
+              <h2 className="text-xl font-semibold text-foreground">Clasificados por fase</h2>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Cada fase solo permite elegir equipos que hayas seleccionado en la fase inmediatamente anterior.
+              </p>
+            </div>
             {[
-              ["roundOf16TeamIds", "Octavos de final", 16],
-              ["quarterFinalTeamIds", "Cuartos de final", 8],
-              ["semiFinalTeamIds", "Semifinal", 4],
-              ["finalTeamIds", "Final", 2],
-            ].map(([stageKey, label, limit]) => (
+              ["roundOf16TeamIds", "Octavos de final", anticipationStageLimits.roundOf16TeamIds, roundOf16Candidates, "Sale del top 2 mas mejores terceros"],
+              ["quarterFinalTeamIds", "Cuartos de final", anticipationStageLimits.quarterFinalTeamIds, quarterFinalCandidates, "Solo usa equipos que elegiste para octavos"],
+              ["semiFinalTeamIds", "Semifinal", anticipationStageLimits.semiFinalTeamIds, semiFinalCandidates, "Solo usa equipos que elegiste para cuartos"],
+              ["finalTeamIds", "Final", anticipationStageLimits.finalTeamIds, finalCandidates, "Solo usa equipos que elegiste para semifinal"],
+            ].map(([stageKey, label, limit, teams, helperText]) => (
               <div key={stageKey} className="panel rounded-3xl p-5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h3 className="text-lg font-semibold text-foreground">{label}</h3>
-                    <p className="text-sm text-muted-foreground">Seleccionados: {form.stageSelections[stageKey as keyof typeof stageLimits].length} / {limit}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Seleccionados: {form.stageSelections[stageKey as keyof typeof anticipationStageLimits].length} / {limit}
+                    </p>
+                    <p className="mt-1 text-xs uppercase tracking-[0.14em] text-primary">{helperText}</p>
                   </div>
                 </div>
                 <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                  {data.teams.map((team: any) => (
+                  {(teams as any[]).map((team: any) => (
                     <TeamChip
                       key={`${stageKey}-${team._id}`}
                       team={team}
-                      active={form.stageSelections[stageKey as keyof typeof stageLimits].includes(team._id)}
-                      onClick={() => toggleStageSelection(stageKey as keyof typeof stageLimits, team._id)}
+                      active={form.stageSelections[stageKey as keyof typeof anticipationStageLimits].includes(team._id)}
+                      onClick={() => toggleStageSelection(stageKey as keyof typeof anticipationStageLimits, team._id)}
                     />
                   ))}
                 </div>
+                {(teams as any[]).length === 0 ? <p className="mt-4 text-sm text-muted-foreground">Aun no hay equipos habilitados para esta fase.</p> : null}
               </div>
             ))}
           </section>
@@ -365,9 +472,9 @@ export default function AnticipationPage() {
           <section className="space-y-4">
             <div className="panel rounded-3xl p-6">
               <h2 className="text-xl font-semibold text-foreground">Campeon</h2>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">Selecciona el equipo que se coronara campeon del torneo.</p>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">Selecciona el equipo que se coronara campeon del torneo. Solo puedes elegir entre tus finalistas.</p>
               <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                {data.teams.map((team: any) => (
+                {finalCandidates.map((team: any) => (
                   <TeamChip
                     key={`champion-${team._id}`}
                     team={team}
@@ -384,6 +491,7 @@ export default function AnticipationPage() {
                   />
                 ))}
               </div>
+              {finalCandidates.length === 0 ? <p className="mt-4 text-sm text-muted-foreground">Primero selecciona tus equipos finalistas.</p> : null}
             </div>
           </section>
 
@@ -394,20 +502,7 @@ export default function AnticipationPage() {
             <button
               type="button"
               onClick={() =>
-                setDraftForm({
-                  groupRankings: data.groups.map((group: any) => ({
-                    group: group.group,
-                    firstTeamId: null,
-                    secondTeamId: null,
-                  })),
-                  stageSelections: {
-                    roundOf16TeamIds: [],
-                    quarterFinalTeamIds: [],
-                    semiFinalTeamIds: [],
-                    finalTeamIds: [],
-                    championTeamId: null,
-                  },
-                })
+                setDraftForm(createEmptyForm(data.groups))
               }
               disabled={mutation.isPending || data.locked}
               className="btn-secondary"

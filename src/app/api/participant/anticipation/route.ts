@@ -1,3 +1,4 @@
+import { getAnticipationCandidatePools, sanitizeAnticipationForm, type AnticipationFormShape } from "@/lib/anticipation";
 import { bootstrapDataLayer } from "@/lib/server/data";
 import { fail, ok } from "@/lib/server/api";
 import { getFirstMatchDate } from "@/lib/server/tournament";
@@ -15,6 +16,7 @@ interface LeanPrediction {
     secondTeamId?: string | { toString(): string } | null;
   }>;
   stageSelections?: {
+    bestThirdTeamIds?: Array<string | { toString(): string }>;
     roundOf16TeamIds?: Array<string | { toString(): string }>;
     quarterFinalTeamIds?: Array<string | { toString(): string }>;
     semiFinalTeamIds?: Array<string | { toString(): string }>;
@@ -33,19 +35,24 @@ function normalizePrediction(prediction: LeanPrediction | null) {
     return null;
   }
 
-  return {
+  const normalized = sanitizeAnticipationForm({
     groupRankings: (prediction.groupRankings ?? []).map((item) => ({
       group: item.group,
       firstTeamId: normalizeId(item.firstTeamId),
       secondTeamId: normalizeId(item.secondTeamId),
     })),
     stageSelections: {
+      bestThirdTeamIds: (prediction.stageSelections?.bestThirdTeamIds ?? []).map((item) => item.toString()),
       roundOf16TeamIds: (prediction.stageSelections?.roundOf16TeamIds ?? []).map((item) => item.toString()),
       quarterFinalTeamIds: (prediction.stageSelections?.quarterFinalTeamIds ?? []).map((item) => item.toString()),
       semiFinalTeamIds: (prediction.stageSelections?.semiFinalTeamIds ?? []).map((item) => item.toString()),
       finalTeamIds: (prediction.stageSelections?.finalTeamIds ?? []).map((item) => item.toString()),
       championTeamId: normalizeId(prediction.stageSelections?.championTeamId),
     },
+  });
+
+  return {
+    ...normalized,
     lockedAt: prediction.lockedAt ?? null,
   };
 }
@@ -123,6 +130,7 @@ export async function POST(request: Request) {
 
     const teamMap = new Map(teams.map((team) => [String(team._id), team]));
     const validTeamIds = new Set(teamMap.keys());
+    const teamsWithGroup = new Set(teams.filter((team) => team.group).map((team) => String(team._id)));
 
     for (const ranking of parsed.data.groupRankings) {
       const groupTeams = teams.filter((team) => (team.group ?? "") === ranking.group).map((team) => String(team._id));
@@ -134,27 +142,67 @@ export async function POST(request: Request) {
       }
     }
 
-    const arraysToValidate = [
-      ...parsed.data.stageSelections.roundOf16TeamIds,
-      ...parsed.data.stageSelections.quarterFinalTeamIds,
-      ...parsed.data.stageSelections.semiFinalTeamIds,
-      ...parsed.data.stageSelections.finalTeamIds,
-    ];
+    for (const teamId of parsed.data.stageSelections.bestThirdTeamIds) {
+      if (!validTeamIds.has(teamId) || !teamsWithGroup.has(teamId)) {
+        return fail("Hay terceros seleccionados que ya no existen o no pertenecen a grupos", 400);
+      }
+    }
 
-    for (const teamId of arraysToValidate) {
+    const qualifiedFromGroups = new Set(
+      parsed.data.groupRankings.flatMap((ranking) => [ranking.firstTeamId, ranking.secondTeamId].filter((teamId): teamId is string => Boolean(teamId))),
+    );
+
+    for (const teamId of parsed.data.stageSelections.bestThirdTeamIds) {
+      if (qualifiedFromGroups.has(teamId)) {
+        return fail("Un mejor tercero no puede repetirse entre los clasificados directos por grupo", 400);
+      }
+    }
+
+    const sanitizedPrediction: AnticipationFormShape = sanitizeAnticipationForm(parsed.data);
+    const candidatePools = getAnticipationCandidatePools(sanitizedPrediction);
+
+    for (const teamId of candidatePools.roundOf16CandidateIds) {
       if (!validTeamIds.has(teamId)) {
         return fail("Hay equipos seleccionados que ya no existen", 400);
       }
     }
 
-    if (parsed.data.stageSelections.championTeamId && !validTeamIds.has(parsed.data.stageSelections.championTeamId)) {
+    for (const teamId of sanitizedPrediction.stageSelections.roundOf16TeamIds) {
+      if (!candidatePools.roundOf16CandidateIds.includes(teamId)) {
+        return fail("En octavos solo puedes elegir equipos clasificados desde la fase de grupos", 400);
+      }
+    }
+
+    for (const teamId of sanitizedPrediction.stageSelections.quarterFinalTeamIds) {
+      if (!candidatePools.quarterFinalCandidateIds.includes(teamId)) {
+        return fail("En cuartos solo puedes elegir equipos que seleccionaste para octavos", 400);
+      }
+    }
+
+    for (const teamId of sanitizedPrediction.stageSelections.semiFinalTeamIds) {
+      if (!candidatePools.semiFinalCandidateIds.includes(teamId)) {
+        return fail("En semifinal solo puedes elegir equipos que seleccionaste para cuartos", 400);
+      }
+    }
+
+    for (const teamId of sanitizedPrediction.stageSelections.finalTeamIds) {
+      if (!candidatePools.finalCandidateIds.includes(teamId)) {
+        return fail("En la final solo puedes elegir equipos que seleccionaste para semifinal", 400);
+      }
+    }
+
+    if (sanitizedPrediction.stageSelections.championTeamId && !validTeamIds.has(sanitizedPrediction.stageSelections.championTeamId)) {
       return fail("El campeon seleccionado ya no existe", 400);
+    }
+
+    if (sanitizedPrediction.stageSelections.championTeamId && !candidatePools.finalCandidateIds.includes(sanitizedPrediction.stageSelections.championTeamId)) {
+      return fail("El campeon debe salir de los equipos que seleccionaste para la final", 400);
     }
 
     const prediction = await AnticipationPrediction.findOneAndUpdate(
       { userId: user.id },
       {
-        ...parsed.data,
+        ...sanitizedPrediction,
         userId: user.id,
         lockedAt: new Date(),
       },

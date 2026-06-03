@@ -10,15 +10,14 @@ export function calculatePredictionPoints(
     lossPoints: number;
   },
 ) {
+  const predictedDraw = predictedHomeScore === predictedAwayScore;
+  const realDraw = realHomeScore === realAwayScore;
   const exact =
     predictedHomeScore === realHomeScore && predictedAwayScore === realAwayScore;
 
   if (exact) {
-    return scoring.exactScorePoints;
+    return scoring.exactScorePoints + (realDraw ? scoring.drawPoints : scoring.winnerPoints);
   }
-
-  const predictedDraw = predictedHomeScore === predictedAwayScore;
-  const realDraw = realHomeScore === realAwayScore;
 
   if (predictedDraw && realDraw) {
     return scoring.drawPoints;

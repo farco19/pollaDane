@@ -7,6 +7,7 @@ export const defaultMatchScoring = {
 
 export const defaultAnticipationScoring = {
   groupQualifiedPoints: 2,
+  bestThirdPoints: 2,
   roundOf16Points: 5,
   quarterFinalPoints: 10,
   semiFinalPoints: 15,
