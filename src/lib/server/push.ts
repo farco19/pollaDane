@@ -254,19 +254,20 @@ export async function sendPredictionReminderNotifications() {
   const firstMatchDate = getFirstMatchDate(matches);
   const users = await User.find({ role: "participant", isActive: true }).select({ _id: 1 }).lean();
   let sent = 0;
+  const now = Date.now();
 
   const targets =
-    (settings?.predictionCutoffMode ?? "first_match_start") === "first_match_start"
+    (settings?.predictionCutoffMode ?? "match_start") === "first_match_start"
       ? matches.slice(0, 1)
       : matches;
 
   for (const match of targets) {
+    const mode = settings?.predictionCutoffMode ?? "match_start";
     const closeAt = getPredictionCloseTime({
-      mode: settings?.predictionCutoffMode ?? "first_match_start",
+      mode,
       matchDate: match.matchDate,
       firstMatchDate,
     });
-    const now = Date.now();
     const remainingMs = closeAt.getTime() - now;
 
     if (remainingMs <= 0 || remainingMs > 24 * 60 * 60 * 1000) {
@@ -276,13 +277,13 @@ export async function sendPredictionReminderNotifications() {
     const eventBase = `reminder:${String(match._id)}:${new Date().toISOString().slice(0, 10)}`;
     const hoursLeft = Math.max(1, Math.round(remainingMs / (60 * 60 * 1000)));
     const title =
-      (settings?.predictionCutoffMode ?? "first_match_start") === "first_match_start"
+      mode === "first_match_start"
         ? "Tus pronosticos cierran hoy"
         : `Cierre pronto: ${(match.homeTeamId as any)?.shortName ?? "LOC"} vs ${(match.awayTeamId as any)?.shortName ?? "VIS"}`;
     const body =
-      (settings?.predictionCutoffMode ?? "first_match_start") === "first_match_start"
-        ? `Hoy se bloquean todos los pronosticos al iniciar el primer partido. Quedan cerca de ${hoursLeft} horas para revisar tu dashboard.`
-        : `Tus pronosticos para ${(match.homeTeamId as any)?.name ?? "Local"} vs ${(match.awayTeamId as any)?.name ?? "Visitante"} cierran hoy. Revisa el dashboard antes del partido.`;
+      mode === "first_match_start"
+        ? `Hoy se bloquean todos los pronosticos 15 minutos antes del primer partido. Quedan cerca de ${hoursLeft} horas para revisar tu dashboard.`
+        : `Tus pronosticos para ${(match.homeTeamId as any)?.name ?? "Local"} vs ${(match.awayTeamId as any)?.name ?? "Visitante"} se cierran 15 minutos antes del inicio. Revisa el dashboard hoy.`;
 
     for (const user of users) {
       const userId = String(user._id);
@@ -303,7 +304,7 @@ export async function sendPredictionReminderNotifications() {
       }
     }
 
-    if ((settings?.predictionCutoffMode ?? "first_match_start") === "first_match_start") {
+    if (mode === "first_match_start") {
       break;
     }
   }

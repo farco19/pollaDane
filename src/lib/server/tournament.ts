@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { PredictionCutoffMode } from "@/types/domain";
 
+const PREDICTION_BUFFER_MS = 15 * 60 * 1000;
+
 export function getFirstMatchDate(matches: Array<{ matchDate: string | Date }>) {
   if (!matches.length) {
     return null;
@@ -21,10 +23,10 @@ export function getPredictionCloseTime(params: {
   firstMatchDate: string | Date | null;
 }) {
   if (params.mode === "first_match_start" && params.firstMatchDate) {
-    return new Date(params.firstMatchDate);
+    return new Date(new Date(params.firstMatchDate).getTime() - PREDICTION_BUFFER_MS);
   }
 
-  return new Date(params.matchDate);
+  return new Date(new Date(params.matchDate).getTime() - PREDICTION_BUFFER_MS);
 }
 
 export function isPredictionClosed(params: {

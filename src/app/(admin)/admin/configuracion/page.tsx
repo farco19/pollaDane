@@ -20,7 +20,7 @@ export default function SettingsPage() {
         ? {
       entryFee: data.entryFee ?? 20000,
       currency: "COP",
-      predictionCutoffMode: data.predictionCutoffMode ?? "first_match_start",
+      predictionCutoffMode: data.predictionCutoffMode ?? "match_start",
       matchScoring: {
         exactScorePoints: data.matchScoring?.exactScorePoints ?? 5,
         winnerPoints: data.matchScoring?.winnerPoints ?? 3,
@@ -115,8 +115,8 @@ export default function SettingsPage() {
                   onChange={(e) => updateForm((current) => ({ ...current, predictionCutoffMode: e.target.value }))}
                 className="field-select"
               >
-                <option value="first_match_start">Antes del primer partido</option>
-                <option value="match_start">Antes de cada partido</option>
+                <option value="match_start">15 minutos antes de cada partido</option>
+                <option value="first_match_start">15 minutos antes del primer partido</option>
               </select>
 
               <button type="button" onClick={() => mutation.mutate()} className="btn-primary mt-5" disabled={mutation.isPending}>

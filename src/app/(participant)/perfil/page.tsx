@@ -64,7 +64,9 @@ export default function ProfilePage() {
                 <div className="panel-muted rounded-2xl px-4 py-4 sm:col-span-2">
                   <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Cierre de pronosticos</p>
                   <p className="mt-2 text-lg font-semibold text-foreground">
-                    {data.settings.predictionCutoffMode === "first_match_start" ? "Antes del primer partido" : "Antes de cada partido"}
+                    {data.settings.predictionCutoffMode === "first_match_start"
+                      ? "15 minutos antes del primer partido"
+                      : "15 minutos antes de cada partido"}
                   </p>
                 </div>
               </div>

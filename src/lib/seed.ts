@@ -29,7 +29,7 @@ export async function ensureSeedData() {
     await TournamentSettings.create({
       entryFee: 20000,
       currency: "COP",
-      predictionCutoffMode: "first_match_start",
+      predictionCutoffMode: "match_start",
       matchScoring: defaultMatchScoring,
       anticipationScoring: defaultAnticipationScoring,
     });

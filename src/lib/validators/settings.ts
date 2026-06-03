@@ -3,7 +3,7 @@ import { z } from "zod";
 export const settingsUpdateSchema = z.object({
   entryFee: z.number().int().min(1000).max(100000000),
   currency: z.literal("COP").default("COP"),
-  predictionCutoffMode: z.enum(["match_start", "first_match_start"]).default("first_match_start"),
+  predictionCutoffMode: z.enum(["match_start", "first_match_start"]).default("match_start"),
   matchScoring: z.object({
     exactScorePoints: z.number().int().min(0).max(500),
     winnerPoints: z.number().int().min(0).max(500),

@@ -6,7 +6,7 @@ const TournamentSettingsSchema = new Schema<ITournamentSettings>(
   {
     entryFee: { type: Number, required: true, min: 1000 },
     currency: { type: String, enum: ["COP"], default: "COP", required: true },
-    predictionCutoffMode: { type: String, enum: ["match_start", "first_match_start"], default: "first_match_start", required: true },
+    predictionCutoffMode: { type: String, enum: ["match_start", "first_match_start"], default: "match_start", required: true },
     matchScoring: {
       exactScorePoints: { type: Number, required: true, min: 0, default: defaultMatchScoring.exactScorePoints },
       winnerPoints: { type: Number, required: true, min: 0, default: defaultMatchScoring.winnerPoints },

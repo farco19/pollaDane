@@ -19,7 +19,7 @@ function getNormalizedSettings(settings: any) {
   return {
     entryFee: settings?.entryFee ?? 0,
     currency: settings?.currency ?? "COP",
-    predictionCutoffMode: settings?.predictionCutoffMode ?? "first_match_start",
+    predictionCutoffMode: settings?.predictionCutoffMode ?? "match_start",
     matchScoring: {
       ...defaultMatchScoring,
       ...(settings?.matchScoring ?? {}),

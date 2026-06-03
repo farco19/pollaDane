@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     }
 
     const firstMatchDate = getFirstMatchDate(allMatches);
-    const predictionCutoffMode = settings?.predictionCutoffMode ?? "first_match_start";
+    const predictionCutoffMode = settings?.predictionCutoffMode ?? "match_start";
 
     if (
       isPredictionClosed({
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
         firstMatchDate,
       })
     ) {
-      return fail("El partido ya inicio y esta cerrado para pronosticos", 400, "MATCH_CLOSED");
+      return fail("Este partido se cierra 15 minutos antes de iniciar y ya no admite pronosticos", 400, "MATCH_CLOSED");
     }
 
     const prediction = await Prediction.create({
