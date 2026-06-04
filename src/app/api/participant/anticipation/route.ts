@@ -20,7 +20,6 @@ interface LeanPrediction {
   }>;
   stageSelections?: {
     bestThirdTeamIds?: Array<string | { toString(): string }>;
-    roundOf32TeamIds?: Array<string | { toString(): string }>;
     roundOf16TeamIds?: Array<string | { toString(): string }>;
     quarterFinalTeamIds?: Array<string | { toString(): string }>;
     semiFinalTeamIds?: Array<string | { toString(): string }>;
@@ -47,7 +46,6 @@ function normalizePrediction(prediction: LeanPrediction | null) {
     })),
     stageSelections: {
       bestThirdTeamIds: (prediction.stageSelections?.bestThirdTeamIds ?? []).map((item) => item.toString()),
-      roundOf32TeamIds: (prediction.stageSelections?.roundOf32TeamIds ?? []).map((item) => item.toString()),
       roundOf16TeamIds: (prediction.stageSelections?.roundOf16TeamIds ?? []).map((item) => item.toString()),
       quarterFinalTeamIds: (prediction.stageSelections?.quarterFinalTeamIds ?? []).map((item) => item.toString()),
       semiFinalTeamIds: (prediction.stageSelections?.semiFinalTeamIds ?? []).map((item) => item.toString()),
@@ -236,7 +234,6 @@ function buildAnticipationBreakdown(
     totalPoints:
       groupDetails.reduce((sum, group) => sum + group.pointsAwarded, 0) +
       prediction.stageSelections.bestThirdTeamIds.filter((teamId) => actuals.bestThirdTeamIds.has(teamId)).length * scoring.bestThirdPoints +
-      prediction.stageSelections.roundOf32TeamIds.filter((teamId) => actuals.roundOf32TeamIds.has(teamId)).length * scoring.roundOf32Points +
       prediction.stageSelections.roundOf16TeamIds.filter((teamId) => actuals.roundOf16TeamIds.has(teamId)).length * scoring.roundOf16Points +
       prediction.stageSelections.quarterFinalTeamIds.filter((teamId) => actuals.quarterFinalTeamIds.has(teamId)).length * scoring.quarterFinalPoints +
       prediction.stageSelections.semiFinalTeamIds.filter((teamId) => actuals.semiFinalTeamIds.has(teamId)).length * scoring.semiFinalPoints +
@@ -244,7 +241,6 @@ function buildAnticipationBreakdown(
       (championHit ? scoring.championPoints : 0),
     groupDetails,
     bestThird: buildStageSection(prediction.stageSelections.bestThirdTeamIds, actuals.bestThirdTeamIds, scoring.bestThirdPoints, "Mejores terceros"),
-    roundOf32: buildStageSection(prediction.stageSelections.roundOf32TeamIds, actuals.roundOf32TeamIds, scoring.roundOf32Points, "16vos"),
     roundOf16: buildStageSection(prediction.stageSelections.roundOf16TeamIds, actuals.roundOf16TeamIds, scoring.roundOf16Points, "Octavos"),
     quarterFinal: buildStageSection(prediction.stageSelections.quarterFinalTeamIds, actuals.quarterFinalTeamIds, scoring.quarterFinalPoints, "Cuartos"),
     semiFinal: buildStageSection(prediction.stageSelections.semiFinalTeamIds, actuals.semiFinalTeamIds, scoring.semiFinalPoints, "Semifinal"),
@@ -379,21 +375,15 @@ export async function POST(request: Request) {
     const sanitizedPrediction: AnticipationFormShape = sanitizeAnticipationForm(parsed.data);
     const candidatePools = getAnticipationCandidatePools(sanitizedPrediction);
 
-    for (const teamId of candidatePools.roundOf32CandidateIds) {
+    for (const teamId of candidatePools.roundOf16CandidateIds) {
       if (!validTeamIds.has(teamId)) {
         return fail("Hay equipos seleccionados que ya no existen", 400);
       }
     }
 
-    for (const teamId of sanitizedPrediction.stageSelections.roundOf32TeamIds) {
-      if (!candidatePools.roundOf32CandidateIds.includes(teamId)) {
-        return fail("En 16vos solo puedes elegir equipos clasificados desde la fase de grupos", 400);
-      }
-    }
-
     for (const teamId of sanitizedPrediction.stageSelections.roundOf16TeamIds) {
       if (!candidatePools.roundOf16CandidateIds.includes(teamId)) {
-        return fail("En octavos solo puedes elegir equipos que seleccionaste para 16vos", 400);
+        return fail("En octavos solo puedes elegir equipos clasificados desde grupos y mejores terceros", 400);
       }
     }
 

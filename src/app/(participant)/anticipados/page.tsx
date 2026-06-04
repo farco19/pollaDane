@@ -27,7 +27,6 @@ function createEmptyForm(groups: Array<{ group: string }>): AnticipationForm {
     })),
     stageSelections: {
       bestThirdTeamIds: [],
-      roundOf32TeamIds: [],
       roundOf16TeamIds: [],
       quarterFinalTeamIds: [],
       semiFinalTeamIds: [],
@@ -40,7 +39,6 @@ function createEmptyForm(groups: Array<{ group: string }>): AnticipationForm {
 function getPotentialAnticipationPoints(scoring: {
   groupQualifiedPoints: number;
   bestThirdPoints: number;
-  roundOf32Points: number;
   roundOf16Points: number;
   quarterFinalPoints: number;
   semiFinalPoints: number;
@@ -50,7 +48,6 @@ function getPotentialAnticipationPoints(scoring: {
   return (
     16 * scoring.groupQualifiedPoints +
     anticipationStageLimits.bestThirdTeamIds * scoring.bestThirdPoints +
-    anticipationStageLimits.roundOf32TeamIds * scoring.roundOf32Points +
     anticipationStageLimits.roundOf16TeamIds * scoring.roundOf16Points +
     anticipationStageLimits.quarterFinalTeamIds * scoring.quarterFinalPoints +
     anticipationStageLimits.semiFinalTeamIds * scoring.semiFinalPoints +
@@ -125,7 +122,6 @@ export default function AnticipationPage() {
                   groupRankings: data.prediction.groupRankings,
                   stageSelections: {
                     bestThirdTeamIds: data.prediction.stageSelections?.bestThirdTeamIds ?? [],
-                    roundOf32TeamIds: data.prediction.stageSelections?.roundOf32TeamIds ?? [],
                     roundOf16TeamIds: data.prediction.stageSelections?.roundOf16TeamIds ?? [],
                     quarterFinalTeamIds: data.prediction.stageSelections?.quarterFinalTeamIds ?? [],
                     semiFinalTeamIds: data.prediction.stageSelections?.semiFinalTeamIds ?? [],
@@ -145,7 +141,6 @@ export default function AnticipationPage() {
       candidatePools
         ? {
             groupQualified: new Set(candidatePools.groupQualifiedTeamIds),
-            roundOf32: new Set(candidatePools.roundOf32CandidateIds),
             roundOf16: new Set(candidatePools.roundOf16CandidateIds),
             quarterFinal: new Set(candidatePools.quarterFinalCandidateIds),
             semiFinal: new Set(candidatePools.semiFinalCandidateIds),
@@ -156,10 +151,6 @@ export default function AnticipationPage() {
   );
   const bestThirdCandidates = useMemo(
     () => (data?.teams ?? []).filter((team: any) => team.group && !candidateSets?.groupQualified.has(team._id)),
-    [data?.teams, candidateSets],
-  );
-  const roundOf32Candidates = useMemo(
-    () => (data?.teams ?? []).filter((team: any) => candidateSets?.roundOf32.has(team._id)),
     [data?.teams, candidateSets],
   );
   const roundOf16Candidates = useMemo(
@@ -266,7 +257,7 @@ export default function AnticipationPage() {
       <PageHeader
         eyebrow="Anticipados"
         title="Pronosticos anticipados"
-        description="Define antes del primer partido tus clasificados por grupo, mejores terceros, 16vos, octavos y el campeon del torneo."
+        description="Define antes del primer partido tus clasificados por grupo, mejores terceros, quienes pasan a octavos y el campeon del torneo."
       />
 
       <div className="panel rounded-3xl p-6">
@@ -300,10 +291,6 @@ export default function AnticipationPage() {
                 <div className="flex items-center justify-between gap-4 rounded-2xl bg-card px-4 py-3">
                   <span className="text-muted-foreground">Mejores terceros</span>
                   <span className="font-semibold text-foreground">{data.settings.anticipationScoring.bestThirdPoints} pts</span>
-                </div>
-                <div className="flex items-center justify-between gap-4 rounded-2xl bg-card px-4 py-3">
-                  <span className="text-muted-foreground">Pasa a 16vos</span>
-                  <span className="font-semibold text-foreground">{data.settings.anticipationScoring.roundOf32Points} pts</span>
                 </div>
                 <div className="flex items-center justify-between gap-4 rounded-2xl bg-card px-4 py-3">
                   <span className="text-muted-foreground">Pasa a octavos</span>
@@ -342,12 +329,6 @@ export default function AnticipationPage() {
                   <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Mejores terceros</p>
                   <p className="mt-2 text-lg font-semibold text-foreground">
                     {anticipationStageLimits.bestThirdTeamIds * data.settings.anticipationScoring.bestThirdPoints} pts
-                  </p>
-                </div>
-                <div className="rounded-2xl bg-card px-4 py-4">
-                  <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">16vos</p>
-                  <p className="mt-2 text-lg font-semibold text-foreground">
-                    {anticipationStageLimits.roundOf32TeamIds * data.settings.anticipationScoring.roundOf32Points} pts
                   </p>
                 </div>
                 <div className="rounded-2xl bg-card px-4 py-4">
@@ -650,7 +631,7 @@ export default function AnticipationPage() {
             <div className="panel rounded-3xl p-6">
               <h2 className="text-xl font-semibold text-foreground">Mejores terceros</h2>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Selecciona hasta {anticipationStageLimits.bestThirdTeamIds} equipos entre los que no dejaste en top 2. Estos se suman al pool disponible para definir 16vos.
+                Selecciona hasta {anticipationStageLimits.bestThirdTeamIds} equipos entre los que no dejaste en top 2. Con esos 32 clasificados ya defines luego quienes avanzan a octavos.
               </p>
             </div>
             <div className="panel rounded-3xl p-5">
@@ -683,12 +664,11 @@ export default function AnticipationPage() {
             <div className="panel rounded-3xl p-6">
               <h2 className="text-xl font-semibold text-foreground">Clasificados por fase</h2>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Cada fase solo permite elegir equipos que hayas seleccionado en la fase inmediatamente anterior.
+                Primero se arma automaticamente el grupo de 32 clasificados con tus top 2 y tus mejores terceros. Desde ahi eliges quienes avanzan en cada fase.
               </p>
             </div>
             {[
-              ["roundOf32TeamIds", "16vos de final", anticipationStageLimits.roundOf32TeamIds, roundOf32Candidates, "Sale del top 2 mas mejores terceros"],
-              ["roundOf16TeamIds", "Octavos de final", anticipationStageLimits.roundOf16TeamIds, roundOf16Candidates, "Solo usa equipos que elegiste para 16vos"],
+              ["roundOf16TeamIds", "Octavos de final", anticipationStageLimits.roundOf16TeamIds, roundOf16Candidates, "Solo usa equipos que clasificaste desde grupos y mejores terceros"],
               ["quarterFinalTeamIds", "Cuartos de final", anticipationStageLimits.quarterFinalTeamIds, quarterFinalCandidates, "Solo usa equipos que elegiste para octavos"],
               ["semiFinalTeamIds", "Semifinal", anticipationStageLimits.semiFinalTeamIds, semiFinalCandidates, "Solo usa equipos que elegiste para cuartos"],
               ["finalTeamIds", "Final", anticipationStageLimits.finalTeamIds, finalCandidates, "Solo usa equipos que elegiste para semifinal"],
@@ -806,7 +786,6 @@ export default function AnticipationPage() {
 
                   {[
                     data.breakdown.bestThird,
-                    data.breakdown.roundOf32,
                     data.breakdown.roundOf16,
                     data.breakdown.quarterFinal,
                     data.breakdown.semiFinal,

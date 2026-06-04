@@ -36,7 +36,6 @@ export default function SettingsPage() {
       anticipationScoring: {
         groupQualifiedPoints: data.anticipationScoring?.groupQualifiedPoints ?? 2,
         bestThirdPoints: data.anticipationScoring?.bestThirdPoints ?? 2,
-        roundOf32Points: data.anticipationScoring?.roundOf32Points ?? 3,
         roundOf16Points: data.anticipationScoring?.roundOf16Points ?? 5,
         quarterFinalPoints: data.anticipationScoring?.quarterFinalPoints ?? 10,
         semiFinalPoints: data.anticipationScoring?.semiFinalPoints ?? 15,
@@ -206,10 +205,6 @@ export default function SettingsPage() {
                   <input type="number" min={0} value={String(form.anticipationScoring.bestThirdPoints)} onChange={(e) => updateNestedNumberField("anticipationScoring", "bestThirdPoints", e.target.value)} className="field-input" />
                 </div>
                 <div>
-                  <label className="field-label">Pasa a 16vos</label>
-                  <input type="number" min={0} value={String(form.anticipationScoring.roundOf32Points)} onChange={(e) => updateNestedNumberField("anticipationScoring", "roundOf32Points", e.target.value)} className="field-input" />
-                </div>
-                <div>
                   <label className="field-label">Pasa a octavos</label>
                   <input type="number" min={0} value={String(form.anticipationScoring.roundOf16Points)} onChange={(e) => updateNestedNumberField("anticipationScoring", "roundOf16Points", e.target.value)} className="field-input" />
                 </div>
@@ -234,7 +229,6 @@ export default function SettingsPage() {
                 Maximo teorico en anticipados:{" "}
                 {16 * form.anticipationScoring.groupQualifiedPoints +
                   anticipationStageLimits.bestThirdTeamIds * form.anticipationScoring.bestThirdPoints +
-                  anticipationStageLimits.roundOf32TeamIds * form.anticipationScoring.roundOf32Points +
                   anticipationStageLimits.roundOf16TeamIds * form.anticipationScoring.roundOf16Points +
                   anticipationStageLimits.quarterFinalTeamIds * form.anticipationScoring.quarterFinalPoints +
                   anticipationStageLimits.semiFinalTeamIds * form.anticipationScoring.semiFinalPoints +

@@ -95,7 +95,6 @@ export interface ITournamentSettings {
   anticipationScoring: {
     groupQualifiedPoints: number;
     bestThirdPoints: number;
-    roundOf32Points: number;
     roundOf16Points: number;
     quarterFinalPoints: number;
     semiFinalPoints: number;
@@ -118,7 +117,6 @@ export interface IAnticipationPrediction {
   }>;
   stageSelections: {
     bestThirdTeamIds: Types.ObjectId[];
-    roundOf32TeamIds: Types.ObjectId[];
     roundOf16TeamIds: Types.ObjectId[];
     quarterFinalTeamIds: Types.ObjectId[];
     semiFinalTeamIds: Types.ObjectId[];

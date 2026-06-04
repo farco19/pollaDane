@@ -8,7 +8,6 @@ export function buildAnticipationActuals(
   return {
     groupTopTwo: getGroupTopTwo(matches),
     bestThirdTeamIds: new Set(getOfficialBestThirdTeamIds(settings)),
-    roundOf32TeamIds: new Set(getQualifiedTeamIdsByStage(matches, "round_of_32")),
     roundOf16TeamIds: new Set(getQualifiedTeamIdsByStage(matches, "round_of_16")),
     quarterFinalTeamIds: new Set(getQualifiedTeamIdsByStage(matches, "quarter_final")),
     semiFinalTeamIds: new Set(getQualifiedTeamIdsByStage(matches, "semi_final")),
@@ -23,7 +22,6 @@ export function calculateAnticipationPoints(
   scoring: {
     groupQualifiedPoints: number;
     bestThirdPoints: number;
-    roundOf32Points: number;
     roundOf16Points: number;
     quarterFinalPoints: number;
     semiFinalPoints: number;
@@ -48,12 +46,6 @@ export function calculateAnticipationPoints(
   for (const teamId of prediction.stageSelections?.bestThirdTeamIds ?? []) {
     if (actuals.bestThirdTeamIds.has(String(teamId))) {
       totalPoints += scoring.bestThirdPoints;
-    }
-  }
-
-  for (const teamId of prediction.stageSelections?.roundOf32TeamIds ?? []) {
-    if (actuals.roundOf32TeamIds.has(String(teamId))) {
-      totalPoints += scoring.roundOf32Points;
     }
   }
 

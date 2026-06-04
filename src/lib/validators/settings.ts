@@ -25,7 +25,6 @@ export const settingsUpdateSchema = z.object({
   anticipationScoring: z.object({
     groupQualifiedPoints: z.number().int().min(0).max(500),
     bestThirdPoints: z.number().int().min(0).max(500),
-    roundOf32Points: z.number().int().min(0).max(500),
     roundOf16Points: z.number().int().min(0).max(500),
     quarterFinalPoints: z.number().int().min(0).max(500),
     semiFinalPoints: z.number().int().min(0).max(500),

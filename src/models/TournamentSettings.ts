@@ -22,7 +22,6 @@ const TournamentSettingsSchema = new Schema<ITournamentSettings>(
     anticipationScoring: {
       groupQualifiedPoints: { type: Number, required: true, min: 0, default: defaultAnticipationScoring.groupQualifiedPoints },
       bestThirdPoints: { type: Number, required: true, min: 0, default: defaultAnticipationScoring.bestThirdPoints },
-      roundOf32Points: { type: Number, required: true, min: 0, default: defaultAnticipationScoring.roundOf32Points },
       roundOf16Points: { type: Number, required: true, min: 0, default: defaultAnticipationScoring.roundOf16Points },
       quarterFinalPoints: { type: Number, required: true, min: 0, default: defaultAnticipationScoring.quarterFinalPoints },
       semiFinalPoints: { type: Number, required: true, min: 0, default: defaultAnticipationScoring.semiFinalPoints },
