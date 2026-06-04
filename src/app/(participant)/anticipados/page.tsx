@@ -67,18 +67,21 @@ function TeamChip({
   team,
   active,
   onClick,
+  disabled = false,
 }: {
   team: any;
   active: boolean;
   onClick: () => void;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       className={`flex items-center gap-3 rounded-2xl border px-3 py-3 text-left transition ${
         active ? "border-primary/20 bg-primary/10 text-primary" : "border-border bg-card text-foreground hover:bg-muted"
-      }`}
+      } ${disabled ? "cursor-not-allowed opacity-60 hover:bg-card" : ""}`}
     >
       {team.flagUrl ? (
         <Image src={team.flagUrl} alt={team.name} width={28} height={21} className="h-[21px] w-7 object-contain" />
@@ -96,6 +99,7 @@ export default function AnticipationPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["participant-anticipation"],
     queryFn: () => apiFetch<any>("/api/participant/anticipation"),
+    refetchInterval: 30000,
   });
   const [draftForm, setDraftForm] = useState<AnticipationForm | null>(null);
   const baseForm = useMemo(
@@ -154,6 +158,7 @@ export default function AnticipationPage() {
     () => (data?.teams ?? []).filter((team: any) => candidateSets?.final.has(team._id)),
     [data?.teams, candidateSets],
   );
+  const isLocked = Boolean(data?.locked || data?.prediction?.lockedAt);
 
   const mutation = useMutation({
     mutationFn: () => apiFetch("/api/participant/anticipation", { method: "POST", body: JSON.stringify(form) }),
@@ -173,6 +178,10 @@ export default function AnticipationPage() {
     });
 
   function updateGroupSelection(group: string, slot: "firstTeamId" | "secondTeamId", teamId: string) {
+    if (isLocked) {
+      return;
+    }
+
     updateForm((current) => ({
       ...current,
       groupRankings: current.groupRankings.map((item) => {
@@ -198,6 +207,10 @@ export default function AnticipationPage() {
   }
 
   function toggleStageSelection(stageKey: keyof typeof anticipationStageLimits, teamId: string) {
+    if (isLocked) {
+      return;
+    }
+
     updateForm((current) => {
       const values = current.stageSelections[stageKey];
       const exists = values.includes(teamId);
@@ -233,7 +246,7 @@ export default function AnticipationPage() {
           </div>
           <div className="panel-muted rounded-2xl px-4 py-4">
             <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Estado</p>
-            <p className="mt-2 text-sm font-medium text-foreground">{data?.locked ? "Cerrado" : "Abierto para edicion"}</p>
+            <p className="mt-2 text-sm font-medium text-foreground">{isLocked ? "Cerrado" : "Abierto para edicion"}</p>
           </div>
           <div className="panel-muted rounded-2xl px-4 py-4">
             <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Regla</p>
@@ -372,6 +385,7 @@ export default function AnticipationPage() {
                               team={team}
                               active={currentGroup.firstTeamId === team._id}
                               onClick={() => updateGroupSelection(group.group, "firstTeamId", team._id)}
+                              disabled={isLocked}
                             />
                           ))}
                         </div>
@@ -386,6 +400,7 @@ export default function AnticipationPage() {
                               team={team}
                               active={currentGroup.secondTeamId === team._id}
                               onClick={() => updateGroupSelection(group.group, "secondTeamId", team._id)}
+                              disabled={isLocked}
                             />
                           ))}
                         </div>
@@ -420,6 +435,7 @@ export default function AnticipationPage() {
                     team={team}
                     active={form.stageSelections.bestThirdTeamIds.includes(team._id)}
                     onClick={() => toggleStageSelection("bestThirdTeamIds", team._id)}
+                    disabled={isLocked}
                   />
                 ))}
               </div>
@@ -459,6 +475,7 @@ export default function AnticipationPage() {
                       team={team}
                       active={form.stageSelections[stageKey as keyof typeof anticipationStageLimits].includes(team._id)}
                       onClick={() => toggleStageSelection(stageKey as keyof typeof anticipationStageLimits, team._id)}
+                      disabled={isLocked}
                     />
                   ))}
                 </div>
@@ -477,15 +494,20 @@ export default function AnticipationPage() {
                     key={`champion-${team._id}`}
                     team={team}
                     active={form.stageSelections.championTeamId === team._id}
-                    onClick={() =>
+                    onClick={() => {
+                      if (isLocked) {
+                        return;
+                      }
+
                       updateForm((current) => ({
                         ...current,
                         stageSelections: {
                           ...current.stageSelections,
                           championTeamId: current.stageSelections.championTeamId === team._id ? null : team._id,
                         },
-                      }))
-                    }
+                      }));
+                    }}
+                    disabled={isLocked}
                   />
                 ))}
               </div>
@@ -494,7 +516,7 @@ export default function AnticipationPage() {
           </section>
 
           <div className="flex flex-wrap gap-3">
-            <button type="button" onClick={() => mutation.mutate()} disabled={mutation.isPending || data.locked} className="btn-primary">
+            <button type="button" onClick={() => mutation.mutate()} disabled={mutation.isPending || isLocked} className="btn-primary">
               {mutation.isPending ? "Guardando..." : "Guardar pronosticos anticipados"}
             </button>
             <button
@@ -502,7 +524,7 @@ export default function AnticipationPage() {
               onClick={() =>
                 setDraftForm(createEmptyForm(data.groups))
               }
-              disabled={mutation.isPending || data.locked}
+              disabled={mutation.isPending || isLocked}
               className="btn-secondary"
             >
               Limpiar seleccion
