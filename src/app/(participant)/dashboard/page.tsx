@@ -75,6 +75,8 @@ export default function DashboardPage() {
       text: `Si tu campeon es correcto, sumas ${data.rules.anticipationScoring.championPoints} puntos.`,
     },
   ];
+  const podium = data.podium ?? [];
+  const currentPodiumEntry = podium.find((entry: any) => entry.rank === data.summary.rank) ?? null;
 
   return (
     <div className="space-y-6">
@@ -175,6 +177,68 @@ export default function DashboardPage() {
         <StatCard title="Anticipados" value={String(data.summary.anticipationPoints)} description="Puntos obtenidos por clasificados y campeon." icon={ShieldCheck} />
         <StatCard title="Posicion" value={`#${data.summary.rank}`} description="Tu lugar actual en la tabla." icon={Medal} />
         <StatCard title="Premio" value={formatCurrency(data.summary.prizePool)} description={`Aporte por persona: ${formatCurrency(data.summary.entryFee)}`} icon={Wallet} />
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+        <div className="panel rounded-3xl p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Podio actual</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Asi va hoy el reparto del premio entre primero, segundo y tercero.
+              </p>
+            </div>
+            <div className="rounded-full border border-primary/15 bg-primary/8 px-4 py-2 text-sm font-medium text-primary">
+              Reparto: {data.summary.prizeDistribution.firstPlacePercentage}% / {data.summary.prizeDistribution.secondPlacePercentage}% / {data.summary.prizeDistribution.thirdPlacePercentage}%
+            </div>
+          </div>
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
+            {podium.map((entry: any) => {
+              const tone =
+                entry.rank === 1
+                  ? "border-amber-400/30 bg-amber-400/10 text-amber-700"
+                  : entry.rank === 2
+                    ? "border-slate-300/40 bg-slate-300/15 text-slate-700"
+                    : "border-orange-300/35 bg-orange-300/10 text-orange-700";
+
+              return (
+                <div key={`dashboard-podium-${entry.userId}`} className={`rounded-3xl border p-4 ${tone}`}>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em]">#{entry.rank}</p>
+                  <h3 className="mt-3 text-lg font-semibold text-foreground">{entry.name}</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">{entry.totalPoints} pts</p>
+                  <p className="mt-4 text-xs uppercase tracking-[0.16em]">{entry.percentage}% del premio</p>
+                  <p className="mt-2 text-xl font-semibold">{formatCurrency(entry.prizeAmount)}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="panel rounded-3xl p-5">
+          <h2 className="text-lg font-semibold text-foreground">Tu premio estimado</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Esto es lo que estarias cobrando si la tabla quedara como va hoy.
+          </p>
+          {currentPodiumEntry ? (
+            <div className="panel-muted mt-4 rounded-3xl p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Estas en zona de premio</p>
+              <p className="mt-3 text-2xl font-semibold text-foreground">#{currentPodiumEntry.rank}</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Hoy te llevarias el {currentPodiumEntry.percentage}% del premio acumulado.
+              </p>
+              <p className="mt-4 text-3xl font-semibold text-primary">{formatCurrency(currentPodiumEntry.prizeAmount)}</p>
+            </div>
+          ) : (
+            <div className="panel-muted mt-4 rounded-3xl p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Aun fuera del podio</p>
+              <p className="mt-3 text-2xl font-semibold text-foreground">#{data.summary.rank}</p>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Necesitas entrar al top 3 para llevarte premio. Hoy el tercer lugar se llevaria{" "}
+                {podium[2] ? formatCurrency(podium[2].prizeAmount) : formatCurrency(0)}.
+              </p>
+            </div>
+          )}
+        </div>
       </section>
 
       <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">

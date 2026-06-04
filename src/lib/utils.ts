@@ -16,6 +16,7 @@ export function formatCurrency(value: number, currency = "COP") {
 
 const matchStageLabels: Record<string, string> = {
   group: "Fase de grupos",
+  round_of_32: "16vos de final",
   round_of_16: "Octavos de final",
   quarter_final: "Cuartos de final",
   semi_final: "Semifinal",

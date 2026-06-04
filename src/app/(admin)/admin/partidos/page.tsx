@@ -231,7 +231,7 @@ export default function AdminMatchesPage() {
             }
             className="field-select"
           >
-            {["group", "round_of_16", "quarter_final", "semi_final", "third_place", "final"].map((stage) => (
+            {["group", "round_of_32", "round_of_16", "quarter_final", "semi_final", "third_place", "final"].map((stage) => (
               <option key={stage} value={stage}>
                 {formatMatchStage(stage)}
               </option>

@@ -13,6 +13,7 @@ const AnticipationPredictionSchema = new Schema<IAnticipationPrediction>(
     ],
     stageSelections: {
       bestThirdTeamIds: [{ type: Schema.Types.ObjectId, ref: "Team" }],
+      roundOf32TeamIds: [{ type: Schema.Types.ObjectId, ref: "Team" }],
       roundOf16TeamIds: [{ type: Schema.Types.ObjectId, ref: "Team" }],
       quarterFinalTeamIds: [{ type: Schema.Types.ObjectId, ref: "Team" }],
       semiFinalTeamIds: [{ type: Schema.Types.ObjectId, ref: "Team" }],

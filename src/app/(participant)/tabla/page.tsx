@@ -17,11 +17,11 @@ export default function LeaderboardPage() {
       <PageHeader
         eyebrow="Competencia"
         title="Tabla de posiciones"
-        description="Sigue en tiempo real quien lidera la polla, cuantos puntos tiene cada persona y el premio que se disputan."
+        description="Sigue en tiempo real quien lidera la polla, revisa el podio actual y cuanto se llevarian primero, segundo y tercero."
       />
       {isLoading ? <div className="state-panel rounded-3xl p-6 text-muted-foreground">Cargando tabla...</div> : null}
       {error ? <div className="error-panel rounded-3xl p-6">{(error as Error).message}</div> : null}
-      {data ? <LeaderboardTable entries={data.leaderboard} prizePool={data.prizePool} /> : null}
+      {data ? <LeaderboardTable entries={data.leaderboard} prizePool={data.prizePool} podium={data.podium} /> : null}
     </div>
   );
 }

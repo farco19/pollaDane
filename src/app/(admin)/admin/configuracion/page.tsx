@@ -21,6 +21,11 @@ export default function SettingsPage() {
         ? {
       entryFee: data.entryFee ?? 20000,
       currency: "COP",
+      prizeDistribution: {
+        firstPlacePercentage: data.prizeDistribution?.firstPlacePercentage ?? 60,
+        secondPlacePercentage: data.prizeDistribution?.secondPlacePercentage ?? 25,
+        thirdPlacePercentage: data.prizeDistribution?.thirdPlacePercentage ?? 15,
+      },
       predictionCutoffMode: data.predictionCutoffMode ?? "match_start",
       matchScoring: {
         exactScorePoints: data.matchScoring?.exactScorePoints ?? 5,
@@ -31,6 +36,7 @@ export default function SettingsPage() {
       anticipationScoring: {
         groupQualifiedPoints: data.anticipationScoring?.groupQualifiedPoints ?? 2,
         bestThirdPoints: data.anticipationScoring?.bestThirdPoints ?? 2,
+        roundOf32Points: data.anticipationScoring?.roundOf32Points ?? 3,
         roundOf16Points: data.anticipationScoring?.roundOf16Points ?? 5,
         quarterFinalPoints: data.anticipationScoring?.quarterFinalPoints ?? 10,
         semiFinalPoints: data.anticipationScoring?.semiFinalPoints ?? 15,
@@ -82,6 +88,10 @@ export default function SettingsPage() {
   });
 
   const canResetTournament = resetConfirmation.trim().toUpperCase() === "REINICIAR";
+  const prizeDistributionTotal =
+    (form?.prizeDistribution?.firstPlacePercentage ?? 0) +
+    (form?.prizeDistribution?.secondPlacePercentage ?? 0) +
+    (form?.prizeDistribution?.thirdPlacePercentage ?? 0);
   const updateForm = (updater: (current: any) => any) =>
     setDraftForm((current: any) => {
       const resolved = current ?? baseForm;
@@ -89,7 +99,7 @@ export default function SettingsPage() {
     });
   const updateRootNumberField = (key: "entryFee", value: string) =>
     updateForm((current) => ({ ...current, [key]: Number(value) }));
-  const updateNestedNumberField = (section: "matchScoring" | "anticipationScoring", key: string, value: string) =>
+  const updateNestedNumberField = (section: "matchScoring" | "anticipationScoring" | "prizeDistribution", key: string, value: string) =>
     updateForm((current) => ({
       ...current,
       [section]: {
@@ -120,7 +130,7 @@ export default function SettingsPage() {
                 <option value="first_match_start">15 minutos antes del primer partido</option>
               </select>
 
-              <button type="button" onClick={() => mutation.mutate()} className="btn-primary mt-5" disabled={mutation.isPending}>
+              <button type="button" onClick={() => mutation.mutate()} className="btn-primary mt-5" disabled={mutation.isPending || prizeDistributionTotal !== 100}>
                 {mutation.isPending ? "Guardando..." : "Guardar configuracion"}
               </button>
             </div>
@@ -130,6 +140,9 @@ export default function SettingsPage() {
               <p className="mt-4">Aporte: {data ? formatCurrency(data.entryFee) : "-"}</p>
               <p className="mt-2">Participantes: {data?.participants ?? 0}</p>
               <p className="mt-2">Premio acumulado: {data ? formatCurrency(data.prizePool) : "-"}</p>
+              <p className="mt-2">
+                Reparto: {data?.prizeDistribution?.firstPlacePercentage ?? 60}% / {data?.prizeDistribution?.secondPlacePercentage ?? 25}% / {data?.prizeDistribution?.thirdPlacePercentage ?? 15}%
+              </p>
               <p className="mt-2">Primer partido: {data?.firstMatchDate ? formatLongMatchDate(data.firstMatchDate) : "Sin definir"}</p>
             </div>
           </div>
@@ -159,6 +172,28 @@ export default function SettingsPage() {
             </div>
 
             <div className="panel rounded-3xl p-6">
+              <h2 className="text-xl font-semibold text-foreground">Distribucion del premio</h2>
+              <p className="mt-2 text-sm text-muted-foreground">Configura el porcentaje para primero, segundo y tercero. La suma debe ser 100%.</p>
+              <div className="mt-5 grid gap-3 md:grid-cols-3">
+                <div>
+                  <label className="field-label">Primer puesto</label>
+                  <input type="number" min={0} max={100} value={String(form.prizeDistribution.firstPlacePercentage)} onChange={(e) => updateNestedNumberField("prizeDistribution", "firstPlacePercentage", e.target.value)} className="field-input" />
+                </div>
+                <div>
+                  <label className="field-label">Segundo puesto</label>
+                  <input type="number" min={0} max={100} value={String(form.prizeDistribution.secondPlacePercentage)} onChange={(e) => updateNestedNumberField("prizeDistribution", "secondPlacePercentage", e.target.value)} className="field-input" />
+                </div>
+                <div>
+                  <label className="field-label">Tercer puesto</label>
+                  <input type="number" min={0} max={100} value={String(form.prizeDistribution.thirdPlacePercentage)} onChange={(e) => updateNestedNumberField("prizeDistribution", "thirdPlacePercentage", e.target.value)} className="field-input" />
+                </div>
+              </div>
+              <p className={`mt-4 text-xs leading-5 ${prizeDistributionTotal === 100 ? "text-muted-foreground" : "text-destructive"}`}>
+                Total configurado: {prizeDistributionTotal}%
+              </p>
+            </div>
+
+            <div className="panel rounded-3xl p-6">
               <h2 className="text-xl font-semibold text-foreground">Puntos por anticipados</h2>
               <p className="mt-2 text-sm text-muted-foreground">Los pronosticos anticipados se editan hasta el inicio del primer partido y suman por cada acierto.</p>
               <div className="mt-5 grid gap-3 md:grid-cols-2">
@@ -169,6 +204,10 @@ export default function SettingsPage() {
                 <div>
                   <label className="field-label">Mejores terceros</label>
                   <input type="number" min={0} value={String(form.anticipationScoring.bestThirdPoints)} onChange={(e) => updateNestedNumberField("anticipationScoring", "bestThirdPoints", e.target.value)} className="field-input" />
+                </div>
+                <div>
+                  <label className="field-label">Pasa a 16vos</label>
+                  <input type="number" min={0} value={String(form.anticipationScoring.roundOf32Points)} onChange={(e) => updateNestedNumberField("anticipationScoring", "roundOf32Points", e.target.value)} className="field-input" />
                 </div>
                 <div>
                   <label className="field-label">Pasa a octavos</label>
@@ -195,6 +234,7 @@ export default function SettingsPage() {
                 Maximo teorico en anticipados:{" "}
                 {16 * form.anticipationScoring.groupQualifiedPoints +
                   anticipationStageLimits.bestThirdTeamIds * form.anticipationScoring.bestThirdPoints +
+                  anticipationStageLimits.roundOf32TeamIds * form.anticipationScoring.roundOf32Points +
                   anticipationStageLimits.roundOf16TeamIds * form.anticipationScoring.roundOf16Points +
                   anticipationStageLimits.quarterFinalTeamIds * form.anticipationScoring.quarterFinalPoints +
                   anticipationStageLimits.semiFinalTeamIds * form.anticipationScoring.semiFinalPoints +

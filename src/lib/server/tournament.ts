@@ -60,6 +60,10 @@ type GroupStandingEntry = {
   goalsAgainst: number;
 };
 
+type ThirdPlaceStandingEntry = GroupStandingEntry & {
+  group: string;
+};
+
 export function getQualifiedTeamIdsByStage(matches: any[], stage: string) {
   const teamIds = new Set<string>();
 
@@ -159,25 +163,44 @@ export function getGroupTopTwo(matches: any[]) {
   return result;
 }
 
+export function getThirdPlaceStandings(matches: any[], options?: { requireCompleted?: boolean }) {
+  const standings = getGroupStandings(matches, options);
+
+  return Array.from(standings.entries())
+    .map(([group, items]) => {
+      const thirdPlace = items[2];
+      return thirdPlace ? { ...thirdPlace, group } : null;
+    })
+    .filter((entry): entry is ThirdPlaceStandingEntry => Boolean(entry))
+    .sort(sortStandings);
+}
+
 export function getBestThirdTeamIds(matches: any[], limit = 8) {
-  const standings = getGroupStandings(matches, { requireCompleted: true });
   const groupMatches = matches.filter((match) => match.stage === "group" && match.group);
   const groupNames = new Set(groupMatches.map((match) => String(match.group)));
+  const thirdPlaceTeams = getThirdPlaceStandings(matches, { requireCompleted: true });
 
-  if (!groupNames.size || standings.size !== groupNames.size) {
+  if (!groupNames.size || thirdPlaceTeams.length !== groupNames.size) {
     return [];
   }
-
-  const thirdPlaceTeams = Array.from(standings.values())
-    .map((items) => items[2] ?? null)
-    .filter((entry): entry is GroupStandingEntry => Boolean(entry))
-    .sort(sortStandings);
 
   if (thirdPlaceTeams.length < limit) {
     return [];
   }
 
   return thirdPlaceTeams.slice(0, limit).map((entry) => entry.teamId);
+}
+
+export function getOfficialBestThirdTeamIds(
+  settings?: { officialBestThirdTeamIds?: Array<string | { toString(): string } | null | undefined> | null } | null,
+) {
+  return Array.from(
+    new Set(
+      (settings?.officialBestThirdTeamIds ?? [])
+        .map((teamId) => (teamId ? teamId.toString() : ""))
+        .filter(Boolean),
+    ),
+  );
 }
 
 export function getCurrentGroupStandings(matches: any[]) {

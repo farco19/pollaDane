@@ -2,6 +2,7 @@
 import { connectToDatabase } from "@/lib/db";
 import { ensureSeedData } from "@/lib/seed";
 import { buildLeaderboard } from "@/lib/server/leaderboard";
+import { defaultPrizeDistribution } from "@/lib/server/prize";
 import { calculatePredictionPoints } from "@/lib/server/scoring/calculatePredictionPoints";
 import { defaultAnticipationScoring, defaultMatchScoring } from "@/lib/server/scoring/rules";
 import { getFirstMatchDate, isPredictionClosed } from "@/lib/server/tournament";
@@ -19,6 +20,10 @@ function getNormalizedSettings(settings: any) {
   return {
     entryFee: settings?.entryFee ?? 0,
     currency: settings?.currency ?? "COP",
+    prizeDistribution: {
+      ...defaultPrizeDistribution,
+      ...(settings?.prizeDistribution ?? {}),
+    },
     predictionCutoffMode: settings?.predictionCutoffMode ?? "match_start",
     matchScoring: {
       ...defaultMatchScoring,
@@ -101,6 +106,7 @@ export async function getPublicSettings() {
   return {
     entryFee: normalizedSettings.entryFee,
     currency: normalizedSettings.currency,
+    prizeDistribution: normalizedSettings.prizeDistribution,
     predictionCutoffMode: normalizedSettings.predictionCutoffMode,
     matchScoring: normalizedSettings.matchScoring,
     anticipationScoring: normalizedSettings.anticipationScoring,
@@ -131,8 +137,10 @@ export async function getParticipantDashboard(userId: string) {
       predictionsScored: mine?.predictionsScored ?? 0,
       prizePool: settings.prizePool,
       entryFee: settings.entryFee,
+      prizeDistribution: settings.prizeDistribution,
       participants: settings.participants,
     },
+    podium: leaderboardData.podium,
     rules: {
       matchScoring: settings.matchScoring,
       anticipationScoring: settings.anticipationScoring,

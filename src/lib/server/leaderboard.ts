@@ -1,6 +1,6 @@
 import { connectToDatabase } from "@/lib/db";
 import { ensureSeedData } from "@/lib/seed";
-import { calculatePrizePool } from "@/lib/server/prize";
+import { calculatePrizeDistributionAmounts, calculatePrizePool, defaultPrizeDistribution } from "@/lib/server/prize";
 import { buildAnticipationActuals, calculateAnticipationPoints } from "@/lib/server/scoring/anticipation";
 import { defaultAnticipationScoring } from "@/lib/server/scoring/rules";
 import { AnticipationPrediction } from "@/models/AnticipationPrediction";
@@ -84,7 +84,7 @@ export async function buildLeaderboard() {
     ...defaultAnticipationScoring,
     ...(settings?.anticipationScoring ?? {}),
   };
-  const anticipationActuals = buildAnticipationActuals(matches);
+  const anticipationActuals = buildAnticipationActuals(matches, settings);
 
   for (const prediction of anticipationPredictions) {
     const entry = map.get(String(prediction.userId));
@@ -110,9 +110,41 @@ export async function buildLeaderboard() {
       rank: index + 1,
     }));
 
+  const prizePool = calculatePrizePool(settings?.entryFee ?? 0, users.length);
+  const prizeDistribution = {
+    ...defaultPrizeDistribution,
+    ...(settings?.prizeDistribution ?? {}),
+  };
+  const prizeAmounts = calculatePrizeDistributionAmounts(prizePool, prizeDistribution);
+  const podium = [
+    leaderboard[0]
+      ? {
+          ...leaderboard[0],
+          prizeAmount: prizeAmounts.firstPlaceAmount,
+          percentage: prizeDistribution.firstPlacePercentage,
+        }
+      : null,
+    leaderboard[1]
+      ? {
+          ...leaderboard[1],
+          prizeAmount: prizeAmounts.secondPlaceAmount,
+          percentage: prizeDistribution.secondPlacePercentage,
+        }
+      : null,
+    leaderboard[2]
+      ? {
+          ...leaderboard[2],
+          prizeAmount: prizeAmounts.thirdPlaceAmount,
+          percentage: prizeDistribution.thirdPlacePercentage,
+        }
+      : null,
+  ].filter(Boolean);
+
   return {
     leaderboard,
-    prizePool: calculatePrizePool(settings?.entryFee ?? 0, users.length),
+    podium,
+    prizePool,
+    prizeDistribution,
     entryFee: settings?.entryFee ?? 0,
     currency: settings?.currency ?? "COP",
     participants: users.length,

@@ -95,7 +95,7 @@ export default function PredictionsPage() {
             <div>
               <h2 className="text-lg font-semibold text-foreground">Pronostico anticipado</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Revisa cuanto llevas sumado por clasificados, mejores terceros y campeon.
+                Revisa cuanto llevas sumado por clasificados, mejores terceros, 16vos, octavos y campeon.
               </p>
             </div>
             <button type="button" onClick={() => setAnticipationOpen(true)} className="btn-secondary">
@@ -204,6 +204,7 @@ export default function PredictionsPage() {
 
             {[
               anticipationData.breakdown.bestThird,
+              anticipationData.breakdown.roundOf32,
               anticipationData.breakdown.roundOf16,
               anticipationData.breakdown.quarterFinal,
               anticipationData.breakdown.semiFinal,

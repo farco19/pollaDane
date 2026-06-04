@@ -6,6 +6,7 @@ export type MatchStatus = "scheduled" | "live" | "finished";
 export type PredictionCutoffMode = "match_start" | "first_match_start";
 export type MatchStage =
   | "group"
+  | "round_of_32"
   | "round_of_16"
   | "quarter_final"
   | "semi_final"
@@ -79,6 +80,11 @@ export interface ITournamentSettings {
   _id?: Types.ObjectId;
   entryFee: number;
   currency: "COP";
+  prizeDistribution: {
+    firstPlacePercentage: number;
+    secondPlacePercentage: number;
+    thirdPlacePercentage: number;
+  };
   predictionCutoffMode: PredictionCutoffMode;
   matchScoring: {
     exactScorePoints: number;
@@ -89,12 +95,14 @@ export interface ITournamentSettings {
   anticipationScoring: {
     groupQualifiedPoints: number;
     bestThirdPoints: number;
+    roundOf32Points: number;
     roundOf16Points: number;
     quarterFinalPoints: number;
     semiFinalPoints: number;
     finalPoints: number;
     championPoints: number;
   };
+  officialBestThirdTeamIds?: Types.ObjectId[];
   updatedBy?: Types.ObjectId | null;
   createdAt?: Date;
   updatedAt?: Date;
@@ -110,6 +118,7 @@ export interface IAnticipationPrediction {
   }>;
   stageSelections: {
     bestThirdTeamIds: Types.ObjectId[];
+    roundOf32TeamIds: Types.ObjectId[];
     roundOf16TeamIds: Types.ObjectId[];
     quarterFinalTeamIds: Types.ObjectId[];
     semiFinalTeamIds: Types.ObjectId[];

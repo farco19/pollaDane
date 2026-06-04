@@ -6,7 +6,7 @@ const objectIdSchema = z.string().regex(/^[a-f\d]{24}$/i, "Id invalido");
 const matchBaseSchema = z.object({
   homeTeamId: objectIdSchema,
   awayTeamId: objectIdSchema,
-  stage: z.enum(["group", "round_of_16", "quarter_final", "semi_final", "third_place", "final"]),
+  stage: z.enum(["group", "round_of_32", "round_of_16", "quarter_final", "semi_final", "third_place", "final"]),
   group: z.string().trim().max(10).optional().or(z.literal("")),
   stadium: z.string().trim().min(2).max(120),
   matchDate: z.string().trim().transform((value, ctx) => {

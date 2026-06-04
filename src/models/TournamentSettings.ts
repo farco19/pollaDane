@@ -1,11 +1,17 @@
 import { model, models, Schema, type Model } from "mongoose";
 import type { ITournamentSettings } from "@/types/domain";
 import { defaultAnticipationScoring, defaultMatchScoring } from "@/lib/server/scoring/rules";
+import { defaultPrizeDistribution } from "@/lib/server/prize";
 
 const TournamentSettingsSchema = new Schema<ITournamentSettings>(
   {
     entryFee: { type: Number, required: true, min: 1000 },
     currency: { type: String, enum: ["COP"], default: "COP", required: true },
+    prizeDistribution: {
+      firstPlacePercentage: { type: Number, required: true, min: 0, max: 100, default: defaultPrizeDistribution.firstPlacePercentage },
+      secondPlacePercentage: { type: Number, required: true, min: 0, max: 100, default: defaultPrizeDistribution.secondPlacePercentage },
+      thirdPlacePercentage: { type: Number, required: true, min: 0, max: 100, default: defaultPrizeDistribution.thirdPlacePercentage },
+    },
     predictionCutoffMode: { type: String, enum: ["match_start", "first_match_start"], default: "match_start", required: true },
     matchScoring: {
       exactScorePoints: { type: Number, required: true, min: 0, default: defaultMatchScoring.exactScorePoints },
@@ -16,12 +22,14 @@ const TournamentSettingsSchema = new Schema<ITournamentSettings>(
     anticipationScoring: {
       groupQualifiedPoints: { type: Number, required: true, min: 0, default: defaultAnticipationScoring.groupQualifiedPoints },
       bestThirdPoints: { type: Number, required: true, min: 0, default: defaultAnticipationScoring.bestThirdPoints },
+      roundOf32Points: { type: Number, required: true, min: 0, default: defaultAnticipationScoring.roundOf32Points },
       roundOf16Points: { type: Number, required: true, min: 0, default: defaultAnticipationScoring.roundOf16Points },
       quarterFinalPoints: { type: Number, required: true, min: 0, default: defaultAnticipationScoring.quarterFinalPoints },
       semiFinalPoints: { type: Number, required: true, min: 0, default: defaultAnticipationScoring.semiFinalPoints },
       finalPoints: { type: Number, required: true, min: 0, default: defaultAnticipationScoring.finalPoints },
       championPoints: { type: Number, required: true, min: 0, default: defaultAnticipationScoring.championPoints },
     },
+    officialBestThirdTeamIds: [{ type: Schema.Types.ObjectId, ref: "Team" }],
     updatedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
   },
   { timestamps: true },

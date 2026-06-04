@@ -22,6 +22,7 @@ export const anticipationPredictionSchema = z.object({
   ),
   stageSelections: z.object({
     bestThirdTeamIds: teamIdArraySchema.max(anticipationStageLimits.bestThirdTeamIds),
+    roundOf32TeamIds: teamIdArraySchema.max(anticipationStageLimits.roundOf32TeamIds),
     roundOf16TeamIds: teamIdArraySchema,
     quarterFinalTeamIds: teamIdArraySchema,
     semiFinalTeamIds: teamIdArraySchema,

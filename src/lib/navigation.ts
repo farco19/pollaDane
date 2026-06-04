@@ -22,6 +22,7 @@ export const adminNav: NavItem[] = [
   { href: "/admin/equipos", label: "Equipos", icon: Users },
   { href: "/admin/partidos", label: "Partidos", icon: CalendarDays },
   { href: "/admin/resultados", label: "Resultados", icon: Trophy },
+  { href: "/admin/clasificacion-oficial", label: "Clasificacion", icon: Target },
   { href: "/admin/configuracion", label: "Configuracion", icon: Settings },
   { href: "/admin/usuarios", label: "Usuarios", icon: ListOrdered },
 ];
