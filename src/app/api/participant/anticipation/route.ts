@@ -1,7 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { getAnticipationCandidatePools, sanitizeAnticipationForm, type AnticipationFormShape } from "@/lib/anticipation";
+import { buildAnticipationActuals } from "@/lib/server/scoring/anticipation";
 import { bootstrapDataLayer } from "@/lib/server/data";
 import { fail, ok } from "@/lib/server/api";
-import { getFirstMatchDate } from "@/lib/server/tournament";
+import { defaultAnticipationScoring } from "@/lib/server/scoring/rules";
+import { getBestThirdTeamIds, getCurrentGroupStandings, getFirstMatchDate, getGroupTopTwo, getQualifiedTeamIdsByStage } from "@/lib/server/tournament";
 import { requireSessionUser } from "@/lib/server/session";
 import { anticipationPredictionSchema } from "@/lib/validators/anticipation";
 import { TournamentSettings } from "@/models/TournamentSettings";
@@ -57,6 +60,190 @@ function normalizePrediction(prediction: LeanPrediction | null) {
   };
 }
 
+function teamSummary(team: any) {
+  if (!team) {
+    return null;
+  }
+
+  return {
+    _id: String(team._id),
+    name: team.name,
+    shortName: team.shortName,
+    group: team.group ?? null,
+    countryCode: team.code.toLowerCase(),
+    flagUrl: team.flagUrl ?? null,
+  };
+}
+
+function buildStandingsOverview(teams: any[], matches: any[]) {
+  const teamMap = new Map(teams.map((team) => [String(team._id), team]));
+  const currentStandings = getCurrentGroupStandings(matches);
+  const officialTopTwo = getGroupTopTwo(matches);
+  const officialBestThirdIds = new Set(getBestThirdTeamIds(matches));
+  const groupMatches = matches.filter((match) => match.stage === "group" && match.group);
+  const groupMatchMap = groupMatches.reduce((map: Map<string, any[]>, match: any) => {
+    const group = String(match.group);
+    map.set(group, [...(map.get(group) ?? []), match]);
+    return map;
+  }, new Map<string, any[]>());
+  const groupedTeams = teams.reduce((map: Map<string, any[]>, team: any) => {
+    const group = team.group ?? "";
+    if (!group) {
+      return map;
+    }
+
+    map.set(group, [...(map.get(group) ?? []), team]);
+    return map;
+  }, new Map<string, any[]>());
+
+  const groupEntries = Array.from(groupedTeams.entries()) as Array<[string, any[]]>;
+
+  const groups = groupEntries
+    .sort(([a], [b]) => a.localeCompare(b, "es"))
+    .map(([group, groupTeams]) => {
+      const standings = currentStandings.get(group) ?? [];
+      const standingMap = new Map(standings.map((entry) => [entry.teamId, entry]));
+      const officialQualified = new Set(officialTopTwo.get(group) ?? []);
+      const matchesForGroup = groupMatchMap.get(group) ?? [];
+      const completed = matchesForGroup.length > 0 && matchesForGroup.every((match: any) => match.status === "finished");
+
+      return {
+        group,
+        completed,
+        officialQualifiedTeamIds: Array.from(officialQualified),
+        rows: groupTeams
+          .map((team) => {
+            const standing = standingMap.get(String(team._id));
+            return {
+              ...teamSummary(team),
+              played: standing?.played ?? 0,
+              points: standing?.points ?? 0,
+              goalDifference: standing?.goalDifference ?? 0,
+              goalsFor: standing?.goalsFor ?? 0,
+              goalsAgainst: standing?.goalsAgainst ?? 0,
+              isOfficialTopTwo: officialQualified.has(String(team._id)),
+              isOfficialBestThird: officialBestThirdIds.has(String(team._id)),
+            };
+          })
+          .sort((a, b) => {
+            if (b.points !== a.points) return b.points - a.points;
+            if (b.goalDifference !== a.goalDifference) return b.goalDifference - a.goalDifference;
+            if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
+            return a.name.localeCompare(b.name, "es");
+          }),
+      };
+    });
+
+  return {
+    groups,
+    official: {
+      bestThirdTeams: Array.from(officialBestThirdIds).map((teamId) => teamSummary(teamMap.get(teamId))).filter(Boolean),
+      roundOf16Teams: getQualifiedTeamIdsByStage(matches, "round_of_16").map((teamId) => teamSummary(teamMap.get(teamId))).filter(Boolean),
+      quarterFinalTeams: getQualifiedTeamIdsByStage(matches, "quarter_final").map((teamId) => teamSummary(teamMap.get(teamId))).filter(Boolean),
+      semiFinalTeams: getQualifiedTeamIdsByStage(matches, "semi_final").map((teamId) => teamSummary(teamMap.get(teamId))).filter(Boolean),
+      finalTeams: getQualifiedTeamIdsByStage(matches, "final").map((teamId) => teamSummary(teamMap.get(teamId))).filter(Boolean),
+      championTeam: (() => {
+        const championMatch = matches.find((match) => match.stage === "final" && match.status === "finished");
+        if (!championMatch || championMatch.homeScore == null || championMatch.awayScore == null || championMatch.homeScore === championMatch.awayScore) {
+          return null;
+        }
+        const championId = championMatch.homeScore > championMatch.awayScore
+          ? String(championMatch.homeTeamId?._id ?? championMatch.homeTeamId)
+          : String(championMatch.awayTeamId?._id ?? championMatch.awayTeamId);
+        const team = teamMap.get(championId);
+        return team ? teamSummary(team) : null;
+      })(),
+    },
+  };
+}
+
+function buildAnticipationBreakdown(prediction: ReturnType<typeof normalizePrediction>, teams: any[], matches: any[], scoring: any) {
+  if (!prediction) {
+    return null;
+  }
+
+  const actuals = buildAnticipationActuals(matches);
+  const teamMap = new Map(teams.map((team) => [String(team._id), team]));
+  const officialTopTwo = actuals.groupTopTwo;
+  const currentStandings = getCurrentGroupStandings(matches);
+  const byGroup = matches
+    .filter((match) => match.stage === "group" && match.group)
+    .reduce((map: Map<string, any[]>, match: any) => {
+      const group = String(match.group);
+      map.set(group, [...(map.get(group) ?? []), match]);
+      return map;
+    }, new Map<string, any[]>());
+
+  const groupDetails = prediction.groupRankings.map((groupPrediction) => {
+    const official = officialTopTwo.get(groupPrediction.group) ?? [];
+    const resolved = (byGroup.get(groupPrediction.group) ?? []).length > 0 && (byGroup.get(groupPrediction.group) ?? []).every((match) => match.status === "finished");
+    const selectedIds = [groupPrediction.firstTeamId, groupPrediction.secondTeamId].filter((item): item is string => Boolean(item));
+    const hits = selectedIds.filter((teamId) => official.includes(teamId));
+
+    return {
+      group: groupPrediction.group,
+      resolved,
+      pointsAwarded: hits.length * scoring.groupQualifiedPoints,
+      officialTopTwo: official.map((teamId) => teamSummary(teamMap.get(teamId))).filter(Boolean),
+      currentTable: (currentStandings.get(groupPrediction.group) ?? []).map((entry) => ({
+        ...teamSummary(teamMap.get(entry.teamId)),
+        points: entry.points,
+        played: entry.played,
+        goalDifference: entry.goalDifference,
+      })).filter((team) => team._id),
+      selections: [
+        {
+          slot: "Primer clasificado",
+          team: groupPrediction.firstTeamId ? teamSummary(teamMap.get(groupPrediction.firstTeamId)) : null,
+          hit: groupPrediction.firstTeamId ? official.includes(groupPrediction.firstTeamId) : false,
+        },
+        {
+          slot: "Segundo clasificado",
+          team: groupPrediction.secondTeamId ? teamSummary(teamMap.get(groupPrediction.secondTeamId)) : null,
+          hit: groupPrediction.secondTeamId ? official.includes(groupPrediction.secondTeamId) : false,
+        },
+      ],
+    };
+  });
+
+  const buildStageSection = (selectedIds: string[], actualIds: Set<string>, points: number, label: string) => ({
+    label,
+    pointsPerHit: points,
+    pointsAwarded: selectedIds.filter((teamId) => actualIds.has(teamId)).length * points,
+    selections: selectedIds.map((teamId) => ({
+      team: teamSummary(teamMap.get(teamId)),
+      hit: actualIds.has(teamId),
+    })).filter((item) => item.team),
+  });
+
+  const championId = prediction.stageSelections.championTeamId;
+  const championHit = Boolean(championId && actuals.championTeamId === championId);
+
+  return {
+    totalPoints:
+      groupDetails.reduce((sum, group) => sum + group.pointsAwarded, 0) +
+      prediction.stageSelections.bestThirdTeamIds.filter((teamId) => actuals.bestThirdTeamIds.has(teamId)).length * scoring.bestThirdPoints +
+      prediction.stageSelections.roundOf16TeamIds.filter((teamId) => actuals.roundOf16TeamIds.has(teamId)).length * scoring.roundOf16Points +
+      prediction.stageSelections.quarterFinalTeamIds.filter((teamId) => actuals.quarterFinalTeamIds.has(teamId)).length * scoring.quarterFinalPoints +
+      prediction.stageSelections.semiFinalTeamIds.filter((teamId) => actuals.semiFinalTeamIds.has(teamId)).length * scoring.semiFinalPoints +
+      prediction.stageSelections.finalTeamIds.filter((teamId) => actuals.finalTeamIds.has(teamId)).length * scoring.finalPoints +
+      (championHit ? scoring.championPoints : 0),
+    groupDetails,
+    bestThird: buildStageSection(prediction.stageSelections.bestThirdTeamIds, actuals.bestThirdTeamIds, scoring.bestThirdPoints, "Mejores terceros"),
+    roundOf16: buildStageSection(prediction.stageSelections.roundOf16TeamIds, actuals.roundOf16TeamIds, scoring.roundOf16Points, "Octavos"),
+    quarterFinal: buildStageSection(prediction.stageSelections.quarterFinalTeamIds, actuals.quarterFinalTeamIds, scoring.quarterFinalPoints, "Cuartos"),
+    semiFinal: buildStageSection(prediction.stageSelections.semiFinalTeamIds, actuals.semiFinalTeamIds, scoring.semiFinalPoints, "Semifinal"),
+    final: buildStageSection(prediction.stageSelections.finalTeamIds, actuals.finalTeamIds, scoring.finalPoints, "Final"),
+    champion: {
+      pointsPerHit: scoring.championPoints,
+      pointsAwarded: championHit ? scoring.championPoints : 0,
+      selection: championId ? teamSummary(teamMap.get(championId)) : null,
+      official: actuals.championTeamId ? teamSummary(teamMap.get(actuals.championTeamId)) : null,
+      hit: championHit,
+    },
+  };
+}
+
 export async function GET() {
   try {
     await bootstrapDataLayer();
@@ -64,7 +251,7 @@ export async function GET() {
 
     const [teams, matches, prediction, settings] = await Promise.all([
       Team.find({}).sort({ group: 1, name: 1 }).lean(),
-      Match.find({}).sort({ matchDate: 1 }).select({ matchDate: 1 }).lean(),
+      Match.find({}).sort({ matchDate: 1 }).lean(),
       AnticipationPrediction.findOne({ userId: user.id }).lean(),
       TournamentSettings.findOne().lean(),
     ]);
@@ -93,16 +280,24 @@ export async function GET() {
     )
       .sort(([a], [b]) => a.localeCompare(b, "es"))
       .map(([group, groupTeams]) => ({ group, teams: groupTeams }));
+    const standingsOverview = buildStandingsOverview(teams, matches);
+    const scoring = {
+      ...defaultAnticipationScoring,
+      ...(settings?.anticipationScoring ?? {}),
+    };
+    const normalizedPrediction = normalizePrediction(prediction);
 
     return ok({
       firstMatchDate,
       locked,
       settings: {
-        anticipationScoring: settings?.anticipationScoring ?? null,
+        anticipationScoring: scoring,
       },
       groups,
       teams: allTeams,
-      prediction: normalizePrediction(prediction),
+      standingsOverview,
+      breakdown: buildAnticipationBreakdown(normalizedPrediction, teams, matches, scoring),
+      prediction: normalizedPrediction,
     });
   } catch (error) {
     return fail(error instanceof Error ? error.message : "No fue posible cargar los pronosticos anticipados", 401);

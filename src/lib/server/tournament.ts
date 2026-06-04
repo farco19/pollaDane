@@ -53,9 +53,11 @@ function getMatchWinner(match: any) {
 
 type GroupStandingEntry = {
   teamId: string;
+  played: number;
   points: number;
   goalDifference: number;
   goalsFor: number;
+  goalsAgainst: number;
 };
 
 export function getQualifiedTeamIdsByStage(matches: any[], stage: string) {
@@ -85,9 +87,10 @@ function sortStandings(a: GroupStandingEntry, b: GroupStandingEntry) {
   return a.teamId.localeCompare(b.teamId, "es");
 }
 
-export function getGroupStandings(matches: any[]) {
+export function getGroupStandings(matches: any[], options?: { requireCompleted?: boolean }) {
   const groupMatches = matches.filter((match) => match.stage === "group" && match.group);
   const grouped = new Map<string, any[]>();
+  const requireCompleted = options?.requireCompleted ?? true;
 
   for (const match of groupMatches) {
     const group = String(match.group);
@@ -97,32 +100,39 @@ export function getGroupStandings(matches: any[]) {
   const result = new Map<string, GroupStandingEntry[]>();
 
   for (const [group, items] of grouped.entries()) {
-    if (!items.length || items.some((match) => match.status !== "finished")) {
+    if (!items.length || (requireCompleted && items.some((match) => match.status !== "finished"))) {
       continue;
     }
 
-    const table = new Map<string, { teamId: string; points: number; goalDifference: number; goalsFor: number }>();
+    const table = new Map<string, { teamId: string; played: number; points: number; goalDifference: number; goalsFor: number; goalsAgainst: number }>();
 
     for (const match of items) {
       const homeTeamId = String(match.homeTeamId?._id ?? match.homeTeamId);
       const awayTeamId = String(match.awayTeamId?._id ?? match.awayTeamId);
-      const home = table.get(homeTeamId) ?? { teamId: homeTeamId, points: 0, goalDifference: 0, goalsFor: 0 };
-      const away = table.get(awayTeamId) ?? { teamId: awayTeamId, points: 0, goalDifference: 0, goalsFor: 0 };
+      const home = table.get(homeTeamId) ?? { teamId: homeTeamId, played: 0, points: 0, goalDifference: 0, goalsFor: 0, goalsAgainst: 0 };
+      const away = table.get(awayTeamId) ?? { teamId: awayTeamId, played: 0, points: 0, goalDifference: 0, goalsFor: 0, goalsAgainst: 0 };
+      const matchFinished = match.status === "finished";
       const homeScore = match.homeScore ?? 0;
       const awayScore = match.awayScore ?? 0;
 
-      home.goalDifference += homeScore - awayScore;
-      away.goalDifference += awayScore - homeScore;
-      home.goalsFor += homeScore;
-      away.goalsFor += awayScore;
+      if (matchFinished) {
+        home.played += 1;
+        away.played += 1;
+        home.goalDifference += homeScore - awayScore;
+        away.goalDifference += awayScore - homeScore;
+        home.goalsFor += homeScore;
+        away.goalsFor += awayScore;
+        home.goalsAgainst += awayScore;
+        away.goalsAgainst += homeScore;
 
-      if (homeScore > awayScore) {
-        home.points += 3;
-      } else if (awayScore > homeScore) {
-        away.points += 3;
-      } else {
-        home.points += 1;
-        away.points += 1;
+        if (homeScore > awayScore) {
+          home.points += 3;
+        } else if (awayScore > homeScore) {
+          away.points += 3;
+        } else {
+          home.points += 1;
+          away.points += 1;
+        }
       }
 
       table.set(homeTeamId, home);
@@ -136,7 +146,7 @@ export function getGroupStandings(matches: any[]) {
 }
 
 export function getGroupTopTwo(matches: any[]) {
-  const standings = getGroupStandings(matches);
+  const standings = getGroupStandings(matches, { requireCompleted: true });
   const result = new Map<string, string[]>();
 
   for (const [group, items] of standings.entries()) {
@@ -150,7 +160,7 @@ export function getGroupTopTwo(matches: any[]) {
 }
 
 export function getBestThirdTeamIds(matches: any[], limit = 8) {
-  const standings = getGroupStandings(matches);
+  const standings = getGroupStandings(matches, { requireCompleted: true });
   const groupMatches = matches.filter((match) => match.stage === "group" && match.group);
   const groupNames = new Set(groupMatches.map((match) => String(match.group)));
 
@@ -168,4 +178,8 @@ export function getBestThirdTeamIds(matches: any[], limit = 8) {
   }
 
   return thirdPlaceTeams.slice(0, limit).map((entry) => entry.teamId);
+}
+
+export function getCurrentGroupStandings(matches: any[]) {
+  return getGroupStandings(matches, { requireCompleted: false });
 }
