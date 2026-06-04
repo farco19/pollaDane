@@ -13,6 +13,7 @@ interface TeamOption {
   name: string;
   shortName: string;
   countryCode: string;
+  group?: string | null;
   flagUrl: string;
 }
 
@@ -138,17 +139,36 @@ function TeamPicker({ label, teams, selectedTeamId, onSelect, blockedTeamId }: T
 export default function AdminMatchesPage() {
   const queryClient = useQueryClient();
   const [pageLoadedAt] = useState(() => Date.now());
-  const [form, setForm] = useState({ homeTeamId: "", awayTeamId: "", stage: "group", group: "A", stadium: "", matchDate: "" });
+  const [form, setForm] = useState({ homeTeamId: "", awayTeamId: "", stage: "group", group: "", stadium: "", matchDate: "" });
   const { data, isLoading, error } = useQuery({
     queryKey: ["admin-matches"],
     queryFn: () => apiFetch<AdminMatchesResponse>("/api/admin/matches"),
   });
 
+  const teams = data?.teams ?? [];
+  const homeTeam = teams.find((team) => team._id === form.homeTeamId) ?? null;
+  const awayTeam = teams.find((team) => team._id === form.awayTeamId) ?? null;
+  const isGroupStage = form.stage === "group";
+  const derivedGroup =
+    isGroupStage && homeTeam?.group && awayTeam?.group && homeTeam.group === awayTeam.group
+      ? homeTeam.group
+      : "";
+  const hasGroupMismatch = Boolean(isGroupStage && homeTeam && awayTeam && homeTeam.group !== awayTeam.group);
+  const missingGroupAssignment = Boolean(isGroupStage && ((homeTeam && !homeTeam.group) || (awayTeam && !awayTeam.group)));
+
   const mutation = useMutation({
-    mutationFn: () => apiFetch("/api/admin/matches", { method: "POST", body: JSON.stringify({ ...form, status: "scheduled" }) }),
+    mutationFn: () =>
+      apiFetch("/api/admin/matches", {
+        method: "POST",
+        body: JSON.stringify({
+          ...form,
+          group: isGroupStage ? derivedGroup : "",
+          status: "scheduled",
+        }),
+      }),
     onSuccess: () => {
       toast.success("Partido creado");
-      setForm({ homeTeamId: "", awayTeamId: "", stage: "group", group: "A", stadium: "", matchDate: "" });
+      setForm({ homeTeamId: "", awayTeamId: "", stage: "group", group: "", stadium: "", matchDate: "" });
       queryClient.invalidateQueries({ queryKey: ["admin-matches"] });
       queryClient.invalidateQueries({ queryKey: ["participant-matches"] });
     },
@@ -166,8 +186,12 @@ export default function AdminMatchesPage() {
     },
     onError: (err: Error) => toast.error(err.message),
   });
-
-  const teams = data?.teams ?? [];
+  const canCreateMatch =
+    form.homeTeamId !== "" &&
+    form.awayTeamId !== "" &&
+    form.stadium.trim().length >= 2 &&
+    form.matchDate !== "" &&
+    (!isGroupStage || (!!derivedGroup && !hasGroupMismatch && !missingGroupAssignment));
 
   return (
     <div className="space-y-6">
@@ -198,7 +222,13 @@ export default function AdminMatchesPage() {
           />
           <select
             value={form.stage}
-            onChange={(e) => setForm((current) => ({ ...current, stage: e.target.value }))}
+            onChange={(e) =>
+              setForm((current) => ({
+                ...current,
+                stage: e.target.value,
+                group: e.target.value === "group" ? current.group : "",
+              }))
+            }
             className="field-select"
           >
             {["group", "round_of_16", "quarter_final", "semi_final", "third_place", "final"].map((stage) => (
@@ -207,12 +237,13 @@ export default function AdminMatchesPage() {
               </option>
             ))}
           </select>
-          <input
-            placeholder="Grupo"
-            value={form.group}
-            onChange={(e) => setForm((current) => ({ ...current, group: e.target.value }))}
-            className="field-input"
-          />
+          {isGroupStage ? (
+            <div className="field-input flex items-center text-sm text-muted-foreground">
+              {derivedGroup ? `Grupo ${derivedGroup}` : "El grupo se asigna automaticamente"}
+            </div>
+          ) : (
+            <div className="field-input flex items-center text-sm text-muted-foreground">No aplica para eliminatorias</div>
+          )}
           <input
             type="datetime-local"
             value={form.matchDate}
@@ -220,7 +251,13 @@ export default function AdminMatchesPage() {
             className="field-input xl:col-span-2"
           />
         </div>
-        <button type="button" onClick={() => mutation.mutate()} className="btn-primary xl:col-span-3">
+        {isGroupStage && hasGroupMismatch ? (
+          <p className="text-sm text-destructive">En fase de grupos solo puedes enfrentar equipos del mismo grupo.</p>
+        ) : null}
+        {isGroupStage && !hasGroupMismatch && missingGroupAssignment ? (
+          <p className="text-sm text-destructive">Ambos equipos deben tener grupo asignado para crear un partido de fase de grupos.</p>
+        ) : null}
+        <button type="button" onClick={() => mutation.mutate()} disabled={!canCreateMatch || mutation.isPending} className="btn-primary xl:col-span-3 disabled:cursor-not-allowed disabled:opacity-60">
           {mutation.isPending ? "Guardando..." : "Crear partido"}
         </button>
       </div>

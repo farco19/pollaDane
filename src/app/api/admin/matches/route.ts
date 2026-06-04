@@ -18,6 +18,7 @@ export async function GET() {
         name: team.name,
         shortName: team.shortName,
         countryCode: team.code.toLowerCase(),
+        group: team.group ?? null,
         flagUrl: team.flagUrl ?? buildFlagUrl(team.code),
       })),
     });
@@ -69,7 +70,42 @@ export async function POST(request: Request) {
       return fail("Partido invalido", 400, "VALIDATION_ERROR", parsed.error.flatten());
     }
 
-    const match = await Match.create(parsed.data);
+    const teams = await Team.find({ _id: { $in: [parsed.data.homeTeamId, parsed.data.awayTeamId] } })
+      .select({ _id: 1, group: 1 })
+      .lean();
+
+    if (teams.length !== 2) {
+      return fail("Debes seleccionar equipos validos", 400);
+    }
+
+    const homeTeam = teams.find((team) => String(team._id) === parsed.data.homeTeamId);
+    const awayTeam = teams.find((team) => String(team._id) === parsed.data.awayTeamId);
+
+    if (!homeTeam || !awayTeam) {
+      return fail("Debes seleccionar equipos validos", 400);
+    }
+
+    let group: string | null = null;
+
+    if (parsed.data.stage === "group") {
+      const homeGroup = homeTeam.group?.trim() ?? "";
+      const awayGroup = awayTeam.group?.trim() ?? "";
+
+      if (!homeGroup || !awayGroup) {
+        return fail("Los equipos de fase de grupos deben tener un grupo asignado", 400);
+      }
+
+      if (homeGroup !== awayGroup) {
+        return fail("En fase de grupos solo puedes enfrentar equipos del mismo grupo", 400);
+      }
+
+      group = homeGroup;
+    }
+
+    const match = await Match.create({
+      ...parsed.data,
+      group,
+    });
     return ok({ _id: String(match._id) }, "Partido creado");
   } catch (error) {
     return fail(error instanceof Error ? error.message : "No fue posible crear el partido", 500);

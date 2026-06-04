@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
 import { anticipationStageLimits } from "@/lib/anticipation";
+import { formatLongMatchDate } from "@/lib/match-datetime";
 import { apiFetch, formatCurrency } from "@/lib/utils";
 
 export default function SettingsPage() {
@@ -129,7 +130,7 @@ export default function SettingsPage() {
               <p className="mt-4">Aporte: {data ? formatCurrency(data.entryFee) : "-"}</p>
               <p className="mt-2">Participantes: {data?.participants ?? 0}</p>
               <p className="mt-2">Premio acumulado: {data ? formatCurrency(data.prizePool) : "-"}</p>
-              <p className="mt-2">Primer partido: {data?.firstMatchDate ? new Intl.DateTimeFormat("es-CO", { dateStyle: "long", timeStyle: "short" }).format(new Date(data.firstMatchDate)) : "Sin definir"}</p>
+              <p className="mt-2">Primer partido: {data?.firstMatchDate ? formatLongMatchDate(data.firstMatchDate) : "Sin definir"}</p>
             </div>
           </div>
 

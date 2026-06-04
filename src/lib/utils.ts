@@ -1,7 +1,6 @@
 import { type ClassValue, clsx } from "clsx";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
 import { twMerge } from "tailwind-merge";
+export { formatMatchDate } from "@/lib/match-datetime";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -13,10 +12,6 @@ export function formatCurrency(value: number, currency = "COP") {
     currency,
     maximumFractionDigits: 0,
   }).format(value);
-}
-
-export function formatMatchDate(date: string | Date) {
-  return format(new Date(date), "dd MMM yyyy, HH:mm", { locale: es });
 }
 
 const matchStageLabels: Record<string, string> = {

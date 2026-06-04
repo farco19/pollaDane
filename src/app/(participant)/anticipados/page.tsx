@@ -12,6 +12,7 @@ import {
   sanitizeAnticipationForm,
   type AnticipationFormShape,
 } from "@/lib/anticipation";
+import { formatLongMatchDate } from "@/lib/match-datetime";
 import { apiFetch } from "@/lib/utils";
 
 type AnticipationForm = AnticipationFormShape;
@@ -59,10 +60,7 @@ function formatDateLabel(value: string | null) {
     return "Sin partidos programados";
   }
 
-  return new Intl.DateTimeFormat("es-CO", {
-    dateStyle: "long",
-    timeStyle: "short",
-  }).format(new Date(value));
+  return formatLongMatchDate(value);
 }
 
 function TeamChip({

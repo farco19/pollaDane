@@ -5,15 +5,8 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { MatchCard } from "@/components/matches/match-card";
 import { PageHeader } from "@/components/ui/page-header";
+import { getColombiaDateKey } from "@/lib/match-datetime";
 import { apiFetch } from "@/lib/utils";
-
-function getLocalDateKey(value: string | Date) {
-  const date = new Date(value);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
 
 export default function MatchesPage() {
   const [searchText, setSearchText] = useState("");
@@ -37,7 +30,7 @@ export default function MatchesPage() {
     () =>
       matches.filter((match) => {
         const matchesGroup = groupFilter === "all" || (match.group ?? "") === groupFilter;
-        const matchesDate = dateFilter === "" || getLocalDateKey(match.matchDate) === dateFilter;
+        const matchesDate = dateFilter === "" || getColombiaDateKey(match.matchDate) === dateFilter;
         const haystack = [
           match.homeTeam?.name,
           match.homeTeam?.shortName,
@@ -141,4 +134,3 @@ export default function MatchesPage() {
     </div>
   );
 }
-
