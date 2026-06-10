@@ -113,8 +113,8 @@ export default function AnticipationPage() {
     refetchInterval: 30000,
   });
   const [draftForm, setDraftForm] = useState<AnticipationForm | null>(null);
-  const teamGroupLookup = useMemo(
-    () => new Map((data?.teams ?? []).map((team: any) => [team._id, team.group ?? null])),
+  const teamGroupLookup = useMemo<Map<string, string | null>>(
+    () => new Map<string, string | null>((data?.teams ?? []).map((team: any) => [String(team._id), team.group ?? null])),
     [data?.teams],
   );
   const baseForm = useMemo(

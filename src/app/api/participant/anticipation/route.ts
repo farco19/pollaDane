@@ -294,7 +294,7 @@ export async function GET() {
     )
       .sort(([a], [b]) => a.localeCompare(b, "es"))
       .map(([group, groupTeams]) => ({ group, teams: groupTeams }));
-    const teamGroupLookup = new Map(teams.map((team) => [String(team._id), team.group ?? null]));
+    const teamGroupLookup = new Map<string, string | null>(teams.map((team) => [String(team._id), team.group ?? null]));
     const standingsOverview = buildStandingsOverview(teams, matches, settings);
     const scoring = {
       ...defaultAnticipationScoring,
@@ -393,7 +393,7 @@ export async function POST(request: Request) {
     }
 
     const sanitizedPrediction: AnticipationFormShape = sanitizeAnticipationForm(parsed.data, {
-      teamGroupLookup: new Map(teams.map((team) => [String(team._id), team.group ?? null])),
+      teamGroupLookup: new Map<string, string | null>(teams.map((team) => [String(team._id), team.group ?? null])),
     });
     const candidatePools = getAnticipationCandidatePools(sanitizedPrediction);
 
