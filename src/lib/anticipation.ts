@@ -22,8 +22,41 @@ export type AnticipationFormShape = {
   };
 };
 
+type TeamGroupLookup = Map<string, string | null | undefined> | Record<string, string | null | undefined>;
+
 function uniqueTeamIds(items: Array<string | null | undefined>) {
   return Array.from(new Set(items.filter((item): item is string => Boolean(item))));
+}
+
+function getTeamGroup(teamId: string, teamGroupLookup?: TeamGroupLookup) {
+  if (!teamGroupLookup) {
+    return null;
+  }
+
+  if (teamGroupLookup instanceof Map) {
+    return teamGroupLookup.get(teamId) ?? null;
+  }
+
+  return teamGroupLookup[teamId] ?? null;
+}
+
+function sanitizeBestThirdTeamIds(bestThirdTeamIds: string[], teamGroupLookup?: TeamGroupLookup) {
+  if (!teamGroupLookup) {
+    return bestThirdTeamIds;
+  }
+
+  const selectedGroups = new Set<string>();
+
+  return bestThirdTeamIds.filter((teamId) => {
+    const group = getTeamGroup(teamId, teamGroupLookup);
+
+    if (!group || selectedGroups.has(group)) {
+      return false;
+    }
+
+    selectedGroups.add(group);
+    return true;
+  });
 }
 
 export function getQualifiedTeamsFromGroups(groupRankings: AnticipationFormShape["groupRankings"]) {
@@ -48,11 +81,12 @@ export function getAnticipationCandidatePools(form: AnticipationFormShape) {
   };
 }
 
-export function sanitizeAnticipationForm(form: AnticipationFormShape): AnticipationFormShape {
+export function sanitizeAnticipationForm(form: AnticipationFormShape, options?: { teamGroupLookup?: TeamGroupLookup }): AnticipationFormShape {
   const groupQualifiedTeamIds = getQualifiedTeamsFromGroups(form.groupRankings);
-  const bestThirdTeamIds = uniqueTeamIds(form.stageSelections.bestThirdTeamIds)
-    .filter((teamId) => !groupQualifiedTeamIds.includes(teamId))
-    .slice(0, anticipationStageLimits.bestThirdTeamIds);
+  const bestThirdTeamIds = sanitizeBestThirdTeamIds(
+    uniqueTeamIds(form.stageSelections.bestThirdTeamIds).filter((teamId) => !groupQualifiedTeamIds.includes(teamId)),
+    options?.teamGroupLookup,
+  ).slice(0, anticipationStageLimits.bestThirdTeamIds);
   const roundOf16CandidateIds = new Set(uniqueTeamIds([...groupQualifiedTeamIds, ...bestThirdTeamIds]));
   const roundOf16TeamIds = uniqueTeamIds(form.stageSelections.roundOf16TeamIds)
     .filter((teamId) => roundOf16CandidateIds.has(teamId))

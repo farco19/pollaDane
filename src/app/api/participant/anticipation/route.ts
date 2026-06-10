@@ -33,7 +33,10 @@ function normalizeId(value: string | { toString(): string } | null | undefined) 
   return value ? value.toString() : null;
 }
 
-function normalizePrediction(prediction: LeanPrediction | null) {
+function normalizePrediction(
+  prediction: LeanPrediction | null,
+  teamGroupLookup?: Map<string, string | null | undefined>,
+) {
   if (!prediction) {
     return null;
   }
@@ -52,7 +55,7 @@ function normalizePrediction(prediction: LeanPrediction | null) {
       finalTeamIds: (prediction.stageSelections?.finalTeamIds ?? []).map((item) => item.toString()),
       championTeamId: normalizeId(prediction.stageSelections?.championTeamId),
     },
-  });
+  }, { teamGroupLookup });
 
   return {
     ...normalized,
@@ -291,12 +294,13 @@ export async function GET() {
     )
       .sort(([a], [b]) => a.localeCompare(b, "es"))
       .map(([group, groupTeams]) => ({ group, teams: groupTeams }));
+    const teamGroupLookup = new Map(teams.map((team) => [String(team._id), team.group ?? null]));
     const standingsOverview = buildStandingsOverview(teams, matches, settings);
     const scoring = {
       ...defaultAnticipationScoring,
       ...(settings?.anticipationScoring ?? {}),
     };
-    const normalizedPrediction = normalizePrediction(prediction);
+    const normalizedPrediction = normalizePrediction(prediction, teamGroupLookup);
 
     return ok({
       firstMatchDate,
@@ -372,7 +376,25 @@ export async function POST(request: Request) {
       }
     }
 
-    const sanitizedPrediction: AnticipationFormShape = sanitizeAnticipationForm(parsed.data);
+    const selectedBestThirdGroups = new Set<string>();
+
+    for (const teamId of parsed.data.stageSelections.bestThirdTeamIds) {
+      const group = teamMap.get(teamId)?.group ?? null;
+
+      if (!group) {
+        return fail("Cada mejor tercero debe pertenecer a un grupo valido", 400);
+      }
+
+      if (selectedBestThirdGroups.has(group)) {
+        return fail(`Solo puedes elegir un mejor tercero por grupo. Revisa el grupo ${group}`, 400);
+      }
+
+      selectedBestThirdGroups.add(group);
+    }
+
+    const sanitizedPrediction: AnticipationFormShape = sanitizeAnticipationForm(parsed.data, {
+      teamGroupLookup: new Map(teams.map((team) => [String(team._id), team.group ?? null])),
+    });
     const candidatePools = getAnticipationCandidatePools(sanitizedPrediction);
 
     for (const teamId of candidatePools.roundOf16CandidateIds) {

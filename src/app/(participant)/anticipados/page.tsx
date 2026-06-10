@@ -113,6 +113,10 @@ export default function AnticipationPage() {
     refetchInterval: 30000,
   });
   const [draftForm, setDraftForm] = useState<AnticipationForm | null>(null);
+  const teamGroupLookup = useMemo(
+    () => new Map((data?.teams ?? []).map((team: any) => [team._id, team.group ?? null])),
+    [data?.teams],
+  );
   const baseForm = useMemo(
     () =>
       data
@@ -130,9 +134,10 @@ export default function AnticipationPage() {
                   },
                 }
               : createEmptyForm(data.groups ?? []),
+            { teamGroupLookup },
           )
         : null,
-    [data],
+    [data, teamGroupLookup],
   );
   const form = draftForm ?? baseForm;
   const candidatePools = useMemo(() => (form ? getAnticipationCandidatePools(form) : null), [form]);
@@ -153,6 +158,18 @@ export default function AnticipationPage() {
     () => (data?.teams ?? []).filter((team: any) => team.group && !candidateSets?.groupQualified.has(team._id)),
     [data?.teams, candidateSets],
   );
+  const selectedBestThirdGroups = useMemo(() => {
+    const groups = new Set<string>();
+
+    for (const teamId of form?.stageSelections.bestThirdTeamIds ?? []) {
+      const group = teamGroupLookup.get(teamId);
+      if (group) {
+        groups.add(group);
+      }
+    }
+
+    return groups;
+  }, [form?.stageSelections.bestThirdTeamIds, teamGroupLookup]);
   const roundOf16Candidates = useMemo(
     () => (data?.teams ?? []).filter((team: any) => candidateSets?.roundOf16.has(team._id)),
     [data?.teams, candidateSets],
@@ -196,7 +213,7 @@ export default function AnticipationPage() {
   const updateForm = (updater: (current: AnticipationForm) => AnticipationForm) =>
     setDraftForm((current) => {
       const resolved = current ?? baseForm;
-      return resolved ? sanitizeAnticipationForm(updater(resolved)) : current;
+      return resolved ? sanitizeAnticipationForm(updater(resolved), { teamGroupLookup }) : current;
     });
 
   function updateGroupSelection(group: string, slot: "firstTeamId" | "secondTeamId", teamId: string) {
@@ -236,6 +253,16 @@ export default function AnticipationPage() {
     updateForm((current) => {
       const values = current.stageSelections[stageKey];
       const exists = values.includes(teamId);
+
+      if (stageKey === "bestThirdTeamIds" && !exists) {
+        const teamGroup = teamGroupLookup.get(teamId);
+        const hasAnotherFromSameGroup = values.some((value) => value !== teamId && teamGroupLookup.get(value) === teamGroup);
+
+        if (teamGroup && hasAnotherFromSameGroup) {
+          toast.error(`Solo puedes seleccionar un mejor tercero por grupo. Ya elegiste uno del grupo ${teamGroup}.`);
+          return current;
+        }
+      }
 
       if (!exists && values.length >= anticipationStageLimits[stageKey]) {
         toast.error(`Solo puedes seleccionar ${anticipationStageLimits[stageKey]} equipos en esta fase`);
@@ -631,7 +658,7 @@ export default function AnticipationPage() {
             <div className="panel rounded-3xl p-6">
               <h2 className="text-xl font-semibold text-foreground">Mejores terceros</h2>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Selecciona hasta {anticipationStageLimits.bestThirdTeamIds} equipos entre los que no dejaste en top 2. Con esos 32 clasificados ya defines luego quienes avanzan a octavos.
+                Selecciona hasta {anticipationStageLimits.bestThirdTeamIds} equipos entre los que no dejaste en top 2. Solo puede salir un tercero por grupo.
               </p>
             </div>
             <div className="panel rounded-3xl p-5">
@@ -641,6 +668,7 @@ export default function AnticipationPage() {
                   <p className="text-sm text-muted-foreground">
                     Seleccionados: {form.stageSelections.bestThirdTeamIds.length} / {anticipationStageLimits.bestThirdTeamIds}
                   </p>
+                  <p className="mt-1 text-xs uppercase tracking-[0.14em] text-primary">Maximo un equipo por grupo</p>
                 </div>
               </div>
               <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
@@ -650,7 +678,12 @@ export default function AnticipationPage() {
                     team={team}
                     active={form.stageSelections.bestThirdTeamIds.includes(team._id)}
                     onClick={() => toggleStageSelection("bestThirdTeamIds", team._id)}
-                    disabled={isLocked}
+                    disabled={
+                      isLocked ||
+                      (!form.stageSelections.bestThirdTeamIds.includes(team._id) &&
+                        Boolean(team.group) &&
+                        selectedBestThirdGroups.has(team.group))
+                    }
                   />
                 ))}
               </div>
