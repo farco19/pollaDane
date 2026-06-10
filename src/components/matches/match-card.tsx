@@ -44,7 +44,7 @@ export function MatchCard({ match, readOnly = false }: MatchCardProps) {
     away: match.prediction?.predictedAwayScore?.toString() ?? "",
   });
 
-  const isLocked = Boolean(match.prediction) || Boolean(match.isClosed) || readOnly;
+  const isLocked = Boolean(match.isClosed) || readOnly;
 
   const mutation = useMutation({
     mutationFn: async () =>
@@ -57,7 +57,7 @@ export function MatchCard({ match, readOnly = false }: MatchCardProps) {
         }),
       }),
     onSuccess: () => {
-      toast.success("Pronostico guardado y bloqueado correctamente");
+      toast.success(match.prediction ? "Pronostico actualizado correctamente" : "Pronostico guardado correctamente");
       queryClient.invalidateQueries({ queryKey: ["participant-dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["participant-matches"] });
       queryClient.invalidateQueries({ queryKey: ["participant-predictions"] });
@@ -197,11 +197,11 @@ export function MatchCard({ match, readOnly = false }: MatchCardProps) {
             onClick={() => mutation.mutate()}
             className="btn-primary min-w-32"
           >
-            {match.prediction ? "Bloqueado" : mutation.isPending ? "Guardando..." : "Guardar"}
+            {mutation.isPending ? "Guardando..." : match.prediction ? "Guardar cambios" : "Guardar"}
           </button>
         </div>
         <p className="mt-3 text-xs leading-5 text-muted-foreground">
-          Una vez guardes el pronostico no se puede modificar. El cierre depende de la configuracion del torneo y del calendario oficial.
+          Puedes editar tu pronostico hasta 15 minutos antes de que inicie el partido. Despues de ese cierre ya no se puede modificar.
         </p>
       </div>
     </div>

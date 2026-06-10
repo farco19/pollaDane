@@ -29,16 +29,11 @@ export async function POST(request: Request) {
     }
 
     const { matchId, predictedHomeScore, predictedAwayScore } = parsed.data;
-    const [existing, match, settings, allMatches] = await Promise.all([
-      Prediction.findOne({ userId: user.id, matchId }).lean(),
+    const [match, settings, allMatches] = await Promise.all([
       Match.findById(matchId).lean(),
       TournamentSettings.findOne().lean(),
       Match.find({}).sort({ matchDate: 1 }).select({ matchDate: 1 }).lean(),
     ]);
-
-    if (existing) {
-      return fail("Este partido ya fue pronosticado y no puede modificarse", 409, "ALREADY_PREDICTED");
-    }
 
     if (!match) {
       return fail("Partido no encontrado", 404, "MATCH_NOT_FOUND");
@@ -57,13 +52,19 @@ export async function POST(request: Request) {
       return fail("Este partido se cierra 15 minutos antes de iniciar y ya no admite pronosticos", 400, "MATCH_CLOSED");
     }
 
-    const prediction = await Prediction.create({
-      userId: user.id,
-      matchId,
-      predictedHomeScore,
-      predictedAwayScore,
-      lockedAt: new Date(),
-    });
+    const prediction = await Prediction.findOneAndUpdate(
+      { userId: user.id, matchId },
+      {
+        userId: user.id,
+        matchId,
+        predictedHomeScore,
+        predictedAwayScore,
+        lockedAt: new Date(),
+        pointsAwarded: null,
+        scoredAt: null,
+      },
+      { new: true, upsert: true, setDefaultsOnInsert: true },
+    );
 
     return ok({ predictionId: String(prediction._id) }, "Pronostico guardado");
   } catch (error) {

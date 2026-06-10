@@ -54,7 +54,7 @@ export default function MatchesPage() {
       <PageHeader
         eyebrow="Calendario"
         title="Partidos y pronosticos"
-        description="Explora todos los partidos del torneo, filtra por grupo, texto o fecha y guarda un solo pronostico por encuentro."
+        description="Explora todos los partidos del torneo, filtra por grupo, texto o fecha y edita tu pronostico hasta 15 minutos antes de cada partido."
       />
 
       <div className="panel rounded-3xl p-5">
@@ -125,7 +125,10 @@ export default function MatchesPage() {
       {error ? <div className="error-panel rounded-3xl p-6">{(error as Error).message}</div> : null}
       <div className="grid gap-5">
         {filtered.map((match) => (
-          <MatchCard key={match._id} match={match} />
+          <MatchCard
+            key={`${match._id}-${match.prediction?.predictedHomeScore ?? "x"}-${match.prediction?.predictedAwayScore ?? "x"}-${match.isClosed ? "closed" : "open"}`}
+            match={match}
+          />
         ))}
       </div>
       {!isLoading && !error && filtered.length === 0 ? (

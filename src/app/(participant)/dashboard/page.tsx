@@ -320,11 +320,16 @@ export default function DashboardPage() {
         <div className="panel rounded-3xl p-5">
           <h2 className="text-xl font-semibold text-foreground">Proximos partidos</h2>
           <p className="mt-1 text-sm leading-6 text-muted-foreground">
-            Pronostica antes del inicio. Una vez guardes, queda bloqueado.
+            Pronostica y ajusta tu marcador hasta 15 minutos antes del inicio de cada partido.
           </p>
         </div>
         {data.upcomingMatches.length ? (
-          data.upcomingMatches.map((match: any) => <MatchCard key={match._id} match={match} />)
+          data.upcomingMatches.map((match: any) => (
+            <MatchCard
+              key={`${match._id}-${match.prediction?.predictedHomeScore ?? "x"}-${match.prediction?.predictedAwayScore ?? "x"}-${match.isClosed ? "closed" : "open"}`}
+              match={match}
+            />
+          ))
         ) : (
           <div className="state-panel rounded-3xl p-6 text-muted-foreground">No hay partidos programados.</div>
         )}

@@ -19,7 +19,7 @@ import { formatCurrency } from "@/lib/utils";
 
 const highlights = [
   { icon: ShieldCheck, title: "Acceso controlado", description: "Solo entra quien ya pago y recibio su codigo de registro." },
-  { icon: Target, title: "Pronosticos bloqueados", description: "Cada marcador queda sellado apenas guardas o se cierra el partido." },
+  { icon: Target, title: "Pronosticos editables", description: "Cada marcador se puede ajustar hasta 15 minutos antes de que empiece el partido." },
   { icon: Trophy, title: "Puntaje automatico", description: "La tabla se recalcula con exactos, ganadores, empates y anticipados." },
   { icon: Users, title: "Ranking en vivo", description: "Todos siguen posiciones, premio y rendimiento del torneo." },
 ];
