@@ -197,7 +197,7 @@ export default function AnticipationPage() {
       ),
     [data?.standingsOverview?.groups, selectedStandingsGroup],
   );
-  const isLocked = Boolean(data?.locked || data?.prediction?.lockedAt);
+  const isLocked = Boolean(data?.locked);
 
   const mutation = useMutation({
     mutationFn: () => apiFetch("/api/participant/anticipation", { method: "POST", body: JSON.stringify(form) }),
@@ -299,9 +299,16 @@ export default function AnticipationPage() {
           </div>
           <div className="panel-muted rounded-2xl px-4 py-4">
             <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Regla</p>
-            <p className="mt-2 text-sm font-medium text-foreground">Todos estos pronosticos se bloquean al iniciar el primer partido.</p>
+            <p className="mt-2 text-sm font-medium text-foreground">Puedes editar y guardar cuantas veces quieras hasta el inicio del primer partido.</p>
           </div>
         </div>
+
+        {data?.prediction?.savedAt ? (
+          <div className="mt-4 panel-muted rounded-2xl px-4 py-4">
+            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Ultima actualizacion</p>
+            <p className="mt-2 text-sm font-medium text-foreground">{formatDateLabel(data.prediction.savedAt)}</p>
+          </div>
+        ) : null}
 
         {data?.settings ? (
           <div className="mt-4 grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
@@ -765,7 +772,7 @@ export default function AnticipationPage() {
 
           <div className="flex flex-wrap gap-3">
             <button type="button" onClick={() => mutation.mutate()} disabled={mutation.isPending || isLocked} className="btn-primary">
-              {mutation.isPending ? "Guardando..." : "Guardar pronosticos anticipados"}
+              {mutation.isPending ? "Guardando..." : data?.prediction ? "Guardar cambios" : "Guardar pronosticos anticipados"}
             </button>
             <button
               type="button"

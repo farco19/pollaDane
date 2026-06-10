@@ -105,12 +105,12 @@ export default function PredictionsPage() {
           <div className="mt-4 grid gap-4 sm:grid-cols-3">
             <div className="panel-muted rounded-2xl p-4">
               <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Estado</p>
-              <p className="mt-2 font-semibold text-foreground">{anticipationData.locked ? "Bloqueado" : "Pendiente"}</p>
+              <p className="mt-2 font-semibold text-foreground">{anticipationData.locked ? "Bloqueado" : "Editable"}</p>
             </div>
             <div className="panel-muted rounded-2xl p-4">
-              <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Guardado</p>
+              <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Ultima actualizacion</p>
               <p className="mt-2 font-semibold text-foreground">
-                {anticipationData.prediction?.lockedAt ? formatMatchDate(anticipationData.prediction.lockedAt) : "Sin guardar"}
+                {anticipationData.prediction?.savedAt ? formatMatchDate(anticipationData.prediction.savedAt) : "Sin guardar"}
               </p>
             </div>
             <div className="panel-muted rounded-2xl p-4">
@@ -250,4 +250,3 @@ export default function PredictionsPage() {
     </div>
   );
 }
-

@@ -27,6 +27,8 @@ interface LeanPrediction {
     championTeamId?: string | { toString(): string } | null;
   };
   lockedAt?: Date | null;
+  createdAt?: Date | null;
+  updatedAt?: Date | null;
 }
 
 function normalizeId(value: string | { toString(): string } | null | undefined) {
@@ -59,7 +61,7 @@ function normalizePrediction(
 
   return {
     ...normalized,
-    lockedAt: prediction.lockedAt ?? null,
+    savedAt: prediction.updatedAt ?? prediction.createdAt ?? prediction.lockedAt ?? null,
   };
 }
 
@@ -271,9 +273,8 @@ export async function GET() {
     ]);
 
     const firstMatchDate = getFirstMatchDate(matches);
-    const predictionLocked = Boolean(prediction?.lockedAt);
     const closedBySchedule = firstMatchDate ? firstMatchDate.getTime() <= Date.now() : false;
-    const locked = predictionLocked || closedBySchedule;
+    const locked = closedBySchedule;
     const allTeams = teams.map((team) => ({
       _id: String(team._id),
       name: team.name,
@@ -331,16 +332,11 @@ export async function POST(request: Request) {
       return fail("Pronostico anticipado invalido", 400, "VALIDATION_ERROR", parsed.error.flatten());
     }
 
-    const [teams, matches, existingPrediction] = await Promise.all([
+    const [teams, matches] = await Promise.all([
       Team.find({}).lean(),
       Match.find({}).sort({ matchDate: 1 }).select({ matchDate: 1 }).lean(),
-      AnticipationPrediction.findOne({ userId: user.id }).select({ lockedAt: 1 }).lean(),
     ]);
     const firstMatchDate = getFirstMatchDate(matches);
-
-    if (existingPrediction?.lockedAt) {
-      return fail("Tus pronosticos anticipados ya fueron guardados y no se pueden modificar", 400, "ANTICIPATION_LOCKED");
-    }
 
     if (firstMatchDate && firstMatchDate.getTime() <= Date.now()) {
       return fail("Los pronosticos anticipados se cerraron al iniciar el primer partido", 400, "ANTICIPATION_CLOSED");
@@ -440,7 +436,7 @@ export async function POST(request: Request) {
       {
         ...sanitizedPrediction,
         userId: user.id,
-        lockedAt: new Date(),
+        lockedAt: null,
       },
       { new: true, upsert: true },
     );
