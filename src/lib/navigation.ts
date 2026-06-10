@@ -11,6 +11,7 @@ export const participantNav: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/partidos", label: "Partidos", icon: CalendarDays },
   { href: "/anticipados", label: "Anticipados", icon: ShieldCheck },
+  { href: "/clasificacion", label: "Clasificacion", icon: Trophy },
   { href: "/mis-pronosticos", label: "Pronosticos", icon: Target },
   { href: "/tabla", label: "Tabla", icon: Trophy },
   { href: "/perfil", label: "Perfil", icon: Users },
