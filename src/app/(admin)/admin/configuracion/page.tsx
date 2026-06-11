@@ -27,6 +27,7 @@ export default function SettingsPage() {
         thirdPlacePercentage: data.prizeDistribution?.thirdPlacePercentage ?? 15,
       },
       predictionCutoffMode: data.predictionCutoffMode ?? "match_start",
+      anticipationAvailabilityMode: data.anticipationAvailabilityMode ?? "scheduled",
       matchScoring: {
         exactScorePoints: data.matchScoring?.exactScorePoints ?? 5,
         winnerPoints: data.matchScoring?.winnerPoints ?? 3,
@@ -57,6 +58,7 @@ export default function SettingsPage() {
       queryClient.invalidateQueries({ queryKey: ["participant-dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["participant-matches"] });
       queryClient.invalidateQueries({ queryKey: ["participant-predictions"] });
+      queryClient.invalidateQueries({ queryKey: ["participant-anticipation"] });
       queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
     },
     onError: (err: Error) => toast.error(err.message),
@@ -122,12 +124,26 @@ export default function SettingsPage() {
               <label className="field-label mt-5">Cierre de pronosticos por marcador</label>
               <select
                 value={form.predictionCutoffMode}
-                  onChange={(e) => updateForm((current) => ({ ...current, predictionCutoffMode: e.target.value }))}
+                onChange={(e) => updateForm((current) => ({ ...current, predictionCutoffMode: e.target.value }))}
                 className="field-select"
               >
                 <option value="match_start">15 minutos antes de cada partido</option>
                 <option value="first_match_start">15 minutos antes del primer partido</option>
               </select>
+
+              <label className="field-label mt-5">Disponibilidad de anticipados</label>
+              <select
+                value={form.anticipationAvailabilityMode}
+                onChange={(e) => updateForm((current) => ({ ...current, anticipationAvailabilityMode: e.target.value }))}
+                className="field-select"
+              >
+                <option value="scheduled">Segun horario del torneo</option>
+                <option value="manual_open">Desbloqueados manualmente</option>
+                <option value="manual_locked">Bloqueados manualmente</option>
+              </select>
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                Usa esta ventana para reabrir anticipados despues del cierre automatico o volver a bloquearlos cuando termine el ajuste.
+              </p>
 
               <button type="button" onClick={() => mutation.mutate()} className="btn-primary mt-5" disabled={mutation.isPending || prizeDistributionTotal !== 100}>
                 {mutation.isPending ? "Guardando..." : "Guardar configuracion"}
@@ -143,6 +159,9 @@ export default function SettingsPage() {
                 Reparto: {data?.prizeDistribution?.firstPlacePercentage ?? 60}% / {data?.prizeDistribution?.secondPlacePercentage ?? 25}% / {data?.prizeDistribution?.thirdPlacePercentage ?? 15}%
               </p>
               <p className="mt-2">Primer partido: {data?.firstMatchDate ? formatLongMatchDate(data.firstMatchDate) : "Sin definir"}</p>
+              <p className="mt-2">
+                Anticipados: {data?.anticipationAvailabilityMode === "manual_open" ? "Desbloqueados manualmente" : data?.anticipationAvailabilityMode === "manual_locked" ? "Bloqueados manualmente" : "Segun horario"}
+              </p>
             </div>
           </div>
 

@@ -4,7 +4,7 @@ import { buildAnticipationActuals } from "@/lib/server/scoring/anticipation";
 import { bootstrapDataLayer } from "@/lib/server/data";
 import { fail, ok } from "@/lib/server/api";
 import { defaultAnticipationScoring } from "@/lib/server/scoring/rules";
-import { getCurrentGroupStandings, getFirstMatchDate, getGroupTopTwo, getOfficialBestThirdTeamIds, getQualifiedTeamIdsByStage } from "@/lib/server/tournament";
+import { getCurrentGroupStandings, getFirstMatchDate, getGroupTopTwo, getOfficialBestThirdTeamIds, getQualifiedTeamIdsByStage, isAnticipationLocked } from "@/lib/server/tournament";
 import { requireSessionUser } from "@/lib/server/session";
 import { anticipationPredictionSchema } from "@/lib/validators/anticipation";
 import { TournamentSettings } from "@/models/TournamentSettings";
@@ -273,8 +273,10 @@ export async function GET() {
     ]);
 
     const firstMatchDate = getFirstMatchDate(matches);
-    const closedBySchedule = firstMatchDate ? firstMatchDate.getTime() <= Date.now() : false;
-    const locked = closedBySchedule;
+    const locked = isAnticipationLocked({
+      firstMatchDate,
+      mode: settings?.anticipationAvailabilityMode ?? "scheduled",
+    });
     const allTeams = teams.map((team) => ({
       _id: String(team._id),
       name: team.name,
@@ -308,6 +310,7 @@ export async function GET() {
       locked,
       settings: {
         anticipationScoring: scoring,
+        anticipationAvailabilityMode: settings?.anticipationAvailabilityMode ?? "scheduled",
         officialBestThirdTeamIds: getOfficialBestThirdTeamIds(settings),
       },
       groups,
@@ -336,10 +339,11 @@ export async function POST(request: Request) {
       Team.find({}).lean(),
       Match.find({}).sort({ matchDate: 1 }).select({ matchDate: 1 }).lean(),
     ]);
+    const settings = await TournamentSettings.findOne().lean();
     const firstMatchDate = getFirstMatchDate(matches);
 
-    if (firstMatchDate && firstMatchDate.getTime() <= Date.now()) {
-      return fail("Los pronosticos anticipados se cerraron al iniciar el primer partido", 400, "ANTICIPATION_CLOSED");
+    if (isAnticipationLocked({ firstMatchDate, mode: settings?.anticipationAvailabilityMode ?? "scheduled" })) {
+      return fail("Los pronosticos anticipados estan bloqueados en este momento", 400, "ANTICIPATION_CLOSED");
     }
 
     const teamMap = new Map(teams.map((team) => [String(team._id), team]));

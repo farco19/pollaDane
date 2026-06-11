@@ -4,6 +4,7 @@ export type UserRole = "admin" | "participant";
 export type InviteCodeStatus = "available" | "used" | "disabled";
 export type MatchStatus = "scheduled" | "live" | "finished";
 export type PredictionCutoffMode = "match_start" | "first_match_start";
+export type AnticipationAvailabilityMode = "scheduled" | "manual_open" | "manual_locked";
 export type MatchStage =
   | "group"
   | "round_of_32"
@@ -101,6 +102,7 @@ export interface ITournamentSettings {
     finalPoints: number;
     championPoints: number;
   };
+  anticipationAvailabilityMode: AnticipationAvailabilityMode;
   officialBestThirdTeamIds?: Types.ObjectId[];
   updatedBy?: Types.ObjectId | null;
   createdAt?: Date;

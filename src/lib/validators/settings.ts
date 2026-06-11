@@ -16,6 +16,7 @@ export const settingsUpdateSchema = z.object({
       },
     ),
   predictionCutoffMode: z.enum(["match_start", "first_match_start"]).default("match_start"),
+  anticipationAvailabilityMode: z.enum(["scheduled", "manual_open", "manual_locked"]).default("scheduled"),
   matchScoring: z.object({
     exactScorePoints: z.number().int().min(0).max(500),
     winnerPoints: z.number().int().min(0).max(500),

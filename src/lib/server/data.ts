@@ -33,6 +33,7 @@ function getNormalizedSettings(settings: any) {
       ...defaultAnticipationScoring,
       ...(settings?.anticipationScoring ?? {}),
     },
+    anticipationAvailabilityMode: settings?.anticipationAvailabilityMode ?? "scheduled",
   };
 }
 
@@ -108,6 +109,7 @@ export async function getPublicSettings() {
     currency: normalizedSettings.currency,
     prizeDistribution: normalizedSettings.prizeDistribution,
     predictionCutoffMode: normalizedSettings.predictionCutoffMode,
+    anticipationAvailabilityMode: normalizedSettings.anticipationAvailabilityMode,
     matchScoring: normalizedSettings.matchScoring,
     anticipationScoring: normalizedSettings.anticipationScoring,
     firstMatchDate,

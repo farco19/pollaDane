@@ -28,6 +28,7 @@ const TournamentSettingsSchema = new Schema<ITournamentSettings>(
       finalPoints: { type: Number, required: true, min: 0, default: defaultAnticipationScoring.finalPoints },
       championPoints: { type: Number, required: true, min: 0, default: defaultAnticipationScoring.championPoints },
     },
+    anticipationAvailabilityMode: { type: String, enum: ["scheduled", "manual_open", "manual_locked"], default: "scheduled", required: true },
     officialBestThirdTeamIds: [{ type: Schema.Types.ObjectId, ref: "Team" }],
     updatedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
   },
