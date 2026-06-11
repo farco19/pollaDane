@@ -93,6 +93,12 @@ export default function SettingsPage() {
     (form?.prizeDistribution?.firstPlacePercentage ?? 0) +
     (form?.prizeDistribution?.secondPlacePercentage ?? 0) +
     (form?.prizeDistribution?.thirdPlacePercentage ?? 0);
+  const anticipationAvailabilityLabel =
+    form?.anticipationAvailabilityMode === "manual_open"
+      ? "Desbloqueados manualmente"
+      : form?.anticipationAvailabilityMode === "manual_locked"
+        ? "Bloqueados manualmente"
+        : "Segun horario del torneo";
   const updateForm = (updater: (current: any) => any) =>
     setDraftForm((current: any) => {
       const resolved = current ?? baseForm;
@@ -131,18 +137,32 @@ export default function SettingsPage() {
                 <option value="first_match_start">15 minutos antes del primer partido</option>
               </select>
 
-              <label className="field-label mt-5">Disponibilidad de anticipados</label>
-              <select
-                value={form.anticipationAvailabilityMode}
-                onChange={(e) => updateForm((current) => ({ ...current, anticipationAvailabilityMode: e.target.value }))}
-                className="field-select"
-              >
-                <option value="scheduled">Segun horario del torneo</option>
-                <option value="manual_open">Desbloqueados manualmente</option>
-                <option value="manual_locked">Bloqueados manualmente</option>
-              </select>
+              <label className="field-label mt-5">Control manual de anticipados</label>
+              <div className="mt-3 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => updateForm((current) => ({ ...current, anticipationAvailabilityMode: "manual_open" }))}
+                  className={form.anticipationAvailabilityMode === "manual_open" ? "btn-primary" : "btn-secondary"}
+                >
+                  Desbloquear anticipados
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updateForm((current) => ({ ...current, anticipationAvailabilityMode: "manual_locked" }))}
+                  className={form.anticipationAvailabilityMode === "manual_locked" ? "btn-danger" : "btn-secondary"}
+                >
+                  Bloquear anticipados
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updateForm((current) => ({ ...current, anticipationAvailabilityMode: "scheduled" }))}
+                  className={form.anticipationAvailabilityMode === "scheduled" ? "btn-secondary" : "btn-secondary"}
+                >
+                  Volver a horario
+                </button>
+              </div>
               <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                Usa esta ventana para reabrir anticipados despues del cierre automatico o volver a bloquearlos cuando termine el ajuste.
+                Estado actual del borrador: {anticipationAvailabilityLabel}. Usa guardar configuracion para aplicar el cambio.
               </p>
 
               <button type="button" onClick={() => mutation.mutate()} className="btn-primary mt-5" disabled={mutation.isPending || prizeDistributionTotal !== 100}>
