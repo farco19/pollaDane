@@ -608,7 +608,7 @@ export default function AnticipationPage() {
                         <span className="text-sm font-semibold text-primary">{group.pointsAwarded} pts</span>
                       </div>
                       <p className="mt-2 text-sm text-muted-foreground">
-                        {group.resolved ? "Top 2 oficial definido." : "Este grupo sigue pendiente de definirse oficialmente."}
+                        {group.statusText}
                       </p>
                       <div className="mt-3 space-y-2">
                         {group.selections.map((selection: any) => (
@@ -637,6 +637,7 @@ export default function AnticipationPage() {
                         <p className="font-medium text-foreground">{section.label}</p>
                         <span className="text-sm font-semibold text-primary">{section.pointsAwarded} pts</span>
                       </div>
+                      <p className="mt-2 text-sm text-muted-foreground">{section.statusText}</p>
                       <div className="mt-3 space-y-2">
                         {section.selections.length ? (
                           section.selections.map((item: any) => (
@@ -659,6 +660,7 @@ export default function AnticipationPage() {
                       <p className="font-medium text-foreground">Campeon</p>
                       <span className="text-sm font-semibold text-primary">{data.breakdown.champion.pointsAwarded} pts</span>
                     </div>
+                    <p className="mt-2 text-sm text-muted-foreground">{data.breakdown.champion.statusText}</p>
                     <div className="mt-3 space-y-2 text-sm">
                       <div className="rounded-2xl bg-card px-4 py-3 text-muted-foreground">
                         Tu eleccion: {data.breakdown.champion.selection ? data.breakdown.champion.selection.name : "Sin seleccionar"}

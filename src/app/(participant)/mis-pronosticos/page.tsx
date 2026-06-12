@@ -192,6 +192,7 @@ export default function PredictionsPage() {
                   <p className="font-medium text-foreground">Grupo {group.group}</p>
                   <span className="font-semibold text-primary">{group.pointsAwarded} pts</span>
                 </div>
+                <p className="mt-2 text-sm text-muted-foreground">{group.statusText}</p>
                 <div className="mt-3 space-y-2">
                   {group.selections.map((selection: any) => (
                     <div key={`${group.group}-${selection.slot}`} className="rounded-2xl bg-card px-4 py-3 text-sm text-muted-foreground">
@@ -214,6 +215,7 @@ export default function PredictionsPage() {
                   <p className="font-medium text-foreground">{section.label}</p>
                   <span className="font-semibold text-primary">{section.pointsAwarded} pts</span>
                 </div>
+                <p className="mt-2 text-sm text-muted-foreground">{section.statusText}</p>
                 <div className="mt-3 space-y-2">
                   {section.selections.length ? (
                     section.selections.map((item: any) => (
@@ -233,6 +235,7 @@ export default function PredictionsPage() {
                 <p className="font-medium text-foreground">Campeon</p>
                 <span className="font-semibold text-primary">{anticipationData.breakdown.champion.pointsAwarded} pts</span>
               </div>
+              <p className="mt-2 text-sm text-muted-foreground">{anticipationData.breakdown.champion.statusText}</p>
               <div className="mt-3 space-y-2 text-sm text-muted-foreground">
                 <div className="rounded-2xl bg-card px-4 py-3">
                   Tu eleccion: {anticipationData.breakdown.champion.selection ? anticipationData.breakdown.champion.selection.name : "Sin seleccionar"}

@@ -195,11 +195,18 @@ function buildAnticipationBreakdown(
     const resolved = (byGroup.get(groupPrediction.group) ?? []).length > 0 && (byGroup.get(groupPrediction.group) ?? []).every((match) => match.status === "finished");
     const selectedIds = [groupPrediction.firstTeamId, groupPrediction.secondTeamId].filter((item): item is string => Boolean(item));
     const hits = selectedIds.filter((teamId) => official.includes(teamId));
+    const active = actuals.activation.groupQualified;
 
     return {
       group: groupPrediction.group,
+      active,
       resolved,
-      pointsAwarded: hits.length * scoring.groupQualifiedPoints,
+      statusText: active
+        ? resolved
+          ? "Top 2 oficial definido."
+          : "Esta fase ya esta activa, pero este grupo sigue pendiente de definirse oficialmente."
+        : "Estos puntos se activan cuando exista oficialmente al menos un partido de 16vos.",
+      pointsAwarded: active ? hits.length * scoring.groupQualifiedPoints : 0,
       officialTopTwo: official.map((teamId) => teamSummary(teamMap.get(teamId))).filter(Boolean),
       currentTable: (currentStandings.get(groupPrediction.group) ?? []).map((entry) => ({
         ...teamSummary(teamMap.get(entry.teamId)),
@@ -211,46 +218,105 @@ function buildAnticipationBreakdown(
         {
           slot: "Primer clasificado",
           team: groupPrediction.firstTeamId ? teamSummary(teamMap.get(groupPrediction.firstTeamId)) : null,
-          hit: groupPrediction.firstTeamId ? official.includes(groupPrediction.firstTeamId) : false,
+          hit: active && groupPrediction.firstTeamId ? official.includes(groupPrediction.firstTeamId) : false,
         },
         {
           slot: "Segundo clasificado",
           team: groupPrediction.secondTeamId ? teamSummary(teamMap.get(groupPrediction.secondTeamId)) : null,
-          hit: groupPrediction.secondTeamId ? official.includes(groupPrediction.secondTeamId) : false,
+          hit: active && groupPrediction.secondTeamId ? official.includes(groupPrediction.secondTeamId) : false,
         },
       ],
     };
   });
 
-  const buildStageSection = (selectedIds: string[], actualIds: Set<string>, points: number, label: string) => ({
+  const buildStageSection = (
+    selectedIds: string[],
+    actualIds: Set<string>,
+    points: number,
+    label: string,
+    active: boolean,
+    inactiveText: string,
+  ) => ({
     label,
+    active,
+    statusText: active ? "Puntos activos para esta fase." : inactiveText,
     pointsPerHit: points,
-    pointsAwarded: selectedIds.filter((teamId) => actualIds.has(teamId)).length * points,
-    selections: selectedIds.map((teamId) => ({
-      team: teamSummary(teamMap.get(teamId)),
-      hit: actualIds.has(teamId),
-    })).filter((item) => item.team),
+    pointsAwarded: active ? selectedIds.filter((teamId) => actualIds.has(teamId)).length * points : 0,
+    selections: selectedIds
+      .map((teamId) => ({
+        team: teamSummary(teamMap.get(teamId)),
+        hit: active && actualIds.has(teamId),
+      }))
+      .filter((item) => item.team),
   });
 
   const championId = prediction.stageSelections.championTeamId;
-  const championHit = Boolean(championId && actuals.championTeamId === championId);
+  const championActive = actuals.activation.champion;
+  const championHit = Boolean(championActive && championId && actuals.championTeamId === championId);
 
   return {
     totalPoints:
       groupDetails.reduce((sum, group) => sum + group.pointsAwarded, 0) +
-      prediction.stageSelections.bestThirdTeamIds.filter((teamId) => actuals.bestThirdTeamIds.has(teamId)).length * scoring.bestThirdPoints +
-      prediction.stageSelections.roundOf16TeamIds.filter((teamId) => actuals.roundOf16TeamIds.has(teamId)).length * scoring.roundOf16Points +
-      prediction.stageSelections.quarterFinalTeamIds.filter((teamId) => actuals.quarterFinalTeamIds.has(teamId)).length * scoring.quarterFinalPoints +
-      prediction.stageSelections.semiFinalTeamIds.filter((teamId) => actuals.semiFinalTeamIds.has(teamId)).length * scoring.semiFinalPoints +
-      prediction.stageSelections.finalTeamIds.filter((teamId) => actuals.finalTeamIds.has(teamId)).length * scoring.finalPoints +
+      (actuals.activation.bestThird
+        ? prediction.stageSelections.bestThirdTeamIds.filter((teamId) => actuals.bestThirdTeamIds.has(teamId)).length * scoring.bestThirdPoints
+        : 0) +
+      (actuals.activation.roundOf16
+        ? prediction.stageSelections.roundOf16TeamIds.filter((teamId) => actuals.roundOf16TeamIds.has(teamId)).length * scoring.roundOf16Points
+        : 0) +
+      (actuals.activation.quarterFinal
+        ? prediction.stageSelections.quarterFinalTeamIds.filter((teamId) => actuals.quarterFinalTeamIds.has(teamId)).length * scoring.quarterFinalPoints
+        : 0) +
+      (actuals.activation.semiFinal
+        ? prediction.stageSelections.semiFinalTeamIds.filter((teamId) => actuals.semiFinalTeamIds.has(teamId)).length * scoring.semiFinalPoints
+        : 0) +
+      (actuals.activation.final
+        ? prediction.stageSelections.finalTeamIds.filter((teamId) => actuals.finalTeamIds.has(teamId)).length * scoring.finalPoints
+        : 0) +
       (championHit ? scoring.championPoints : 0),
     groupDetails,
-    bestThird: buildStageSection(prediction.stageSelections.bestThirdTeamIds, actuals.bestThirdTeamIds, scoring.bestThirdPoints, "Mejores terceros"),
-    roundOf16: buildStageSection(prediction.stageSelections.roundOf16TeamIds, actuals.roundOf16TeamIds, scoring.roundOf16Points, "Octavos"),
-    quarterFinal: buildStageSection(prediction.stageSelections.quarterFinalTeamIds, actuals.quarterFinalTeamIds, scoring.quarterFinalPoints, "Cuartos"),
-    semiFinal: buildStageSection(prediction.stageSelections.semiFinalTeamIds, actuals.semiFinalTeamIds, scoring.semiFinalPoints, "Semifinal"),
-    final: buildStageSection(prediction.stageSelections.finalTeamIds, actuals.finalTeamIds, scoring.finalPoints, "Final"),
+    bestThird: buildStageSection(
+      prediction.stageSelections.bestThirdTeamIds,
+      actuals.bestThirdTeamIds,
+      scoring.bestThirdPoints,
+      "Mejores terceros",
+      actuals.activation.bestThird,
+      "Estos puntos se activan cuando exista oficialmente al menos un partido de 16vos.",
+    ),
+    roundOf16: buildStageSection(
+      prediction.stageSelections.roundOf16TeamIds,
+      actuals.roundOf16TeamIds,
+      scoring.roundOf16Points,
+      "Octavos",
+      actuals.activation.roundOf16,
+      "Estos puntos se activan cuando exista oficialmente al menos un partido de octavos.",
+    ),
+    quarterFinal: buildStageSection(
+      prediction.stageSelections.quarterFinalTeamIds,
+      actuals.quarterFinalTeamIds,
+      scoring.quarterFinalPoints,
+      "Cuartos",
+      actuals.activation.quarterFinal,
+      "Estos puntos se activan cuando exista oficialmente al menos un partido de cuartos.",
+    ),
+    semiFinal: buildStageSection(
+      prediction.stageSelections.semiFinalTeamIds,
+      actuals.semiFinalTeamIds,
+      scoring.semiFinalPoints,
+      "Semifinal",
+      actuals.activation.semiFinal,
+      "Estos puntos se activan cuando exista oficialmente al menos un partido de semifinal.",
+    ),
+    final: buildStageSection(
+      prediction.stageSelections.finalTeamIds,
+      actuals.finalTeamIds,
+      scoring.finalPoints,
+      "Final",
+      actuals.activation.final,
+      "Estos puntos se activan cuando exista oficialmente la final del torneo.",
+    ),
     champion: {
+      active: championActive,
+      statusText: championActive ? "Campeon oficial definido." : "Estos puntos se activan cuando el campeon quede definido oficialmente.",
       pointsPerHit: scoring.championPoints,
       pointsAwarded: championHit ? scoring.championPoints : 0,
       selection: championId ? teamSummary(teamMap.get(championId)) : null,
