@@ -154,11 +154,11 @@ export function LeaderboardTable({ entries, prizePool, podium }: LeaderboardTabl
 
               <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
                 <div className="rounded-xl border border-border bg-card px-3 py-3">
-                  <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Partidos</p>
+                  <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground" title="Puntos obtenidos de pronósticos de partidos">Pts. Partidos</p>
                   <p className="mt-1 font-semibold text-foreground">{entry.matchPoints}</p>
                 </div>
                 <div className="rounded-xl border border-border bg-card px-3 py-3">
-                  <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Anticipados</p>
+                  <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground" title="Puntos obtenidos de pronósticos anticipados">Pts. Anticipados</p>
                   <p className="mt-1 font-semibold text-foreground">{entry.anticipationPoints}</p>
                 </div>
                 <div className="rounded-xl border border-border bg-card px-3 py-3">
@@ -185,8 +185,8 @@ export function LeaderboardTable({ entries, prizePool, podium }: LeaderboardTabl
                 <th className="px-5 py-3 text-xs font-semibold uppercase tracking-[0.16em]">Pos.</th>
                 <th className="px-5 py-3 text-xs font-semibold uppercase tracking-[0.16em]">Participante</th>
                 <th className="px-5 py-3 text-xs font-semibold uppercase tracking-[0.16em]">Puntos</th>
-                <th className="px-5 py-3 text-xs font-semibold uppercase tracking-[0.16em]">Partidos</th>
-                <th className="px-5 py-3 text-xs font-semibold uppercase tracking-[0.16em]">Anticipados</th>
+                <th className="px-5 py-3 text-xs font-semibold uppercase tracking-[0.16em]" title="Puntos obtenidos de pronósticos de partidos">Pts. Partidos</th>
+                <th className="px-5 py-3 text-xs font-semibold uppercase tracking-[0.16em]" title="Puntos obtenidos de pronósticos anticipados">Pts. Anticipados</th>
                 <th className="px-5 py-3 text-xs font-semibold uppercase tracking-[0.16em]">Exactos</th>
                 <th className="px-5 py-3 text-xs font-semibold uppercase tracking-[0.16em]">Ganadores</th>
                 <th className="px-5 py-3 text-xs font-semibold uppercase tracking-[0.16em]">Empates</th>

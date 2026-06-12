@@ -164,7 +164,7 @@ export default function DashboardPage() {
                 Tu progreso actual
               </div>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Llevas {data.summary.exactHits} exactos, {data.summary.matchPoints} puntos por partidos y {data.summary.anticipationPoints} por anticipados.
+                Llevas {data.summary.exactHits} exactos, {data.summary.matchPoints} puntos de partidos y {data.summary.anticipationPoints} puntos de anticipados.
               </p>
             </div>
           </div>
@@ -173,8 +173,8 @@ export default function DashboardPage() {
 
       <section className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-5">
         <StatCard title="Puntos" value={String(data.summary.totalPoints)} description="Puntaje acumulado en la competencia." icon={Trophy} />
-        <StatCard title="Partidos" value={String(data.summary.matchPoints)} description="Puntos obtenidos por marcadores y resultados." icon={Target} />
-        <StatCard title="Anticipados" value={String(data.summary.anticipationPoints)} description="Puntos obtenidos por clasificados y campeon." icon={ShieldCheck} />
+        <StatCard title="Pts. Partidos" value={String(data.summary.matchPoints)} description="Puntos obtenidos por marcadores y resultados." icon={Target} />
+        <StatCard title="Pts. Anticipados" value={String(data.summary.anticipationPoints)} description="Puntos obtenidos por clasificados y campeon." icon={ShieldCheck} />
         <StatCard title="Posicion" value={`#${data.summary.rank}`} description="Tu lugar actual en la tabla." icon={Medal} />
         <StatCard title="Premio" value={formatCurrency(data.summary.prizePool)} description={`Aporte por persona: ${formatCurrency(data.summary.entryFee)}`} icon={Wallet} />
       </section>
