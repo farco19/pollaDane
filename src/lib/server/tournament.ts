@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { AnticipationAvailabilityMode, PredictionCutoffMode } from "@/types/domain";
+import type { AnticipationAvailabilityMode, MatchPredictionAccessMode, MatchStatus, PredictionCutoffMode } from "@/types/domain";
 
 const PREDICTION_BUFFER_MS = 15 * 60 * 1000;
 
@@ -37,6 +37,34 @@ export function isPredictionClosed(params: {
 }) {
   const closeAt = getPredictionCloseTime(params);
   return closeAt.getTime() <= (params.now ?? Date.now());
+}
+
+export function isMatchPredictionClosed(params: {
+  matchStatus: MatchStatus | string;
+  predictionAccessMode?: MatchPredictionAccessMode | null;
+  mode: PredictionCutoffMode;
+  matchDate: string | Date;
+  firstMatchDate: string | Date | null;
+  now?: number;
+}) {
+  if (params.matchStatus === "finished") {
+    return true;
+  }
+
+  if (params.predictionAccessMode === "manual_locked") {
+    return true;
+  }
+
+  if (params.predictionAccessMode === "manual_open") {
+    return false;
+  }
+
+  return isPredictionClosed({
+    mode: params.mode,
+    matchDate: params.matchDate,
+    firstMatchDate: params.firstMatchDate,
+    now: params.now,
+  });
 }
 
 export function isAnticipationLocked(params: {

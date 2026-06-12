@@ -16,6 +16,7 @@ interface MatchCardProps {
     matchDate: string;
     status: string;
     isClosed?: boolean;
+    predictionAccessMode?: "scheduled" | "manual_open" | "manual_locked";
     homeScore?: number | null;
     awayScore?: number | null;
     prediction?: {
@@ -45,6 +46,12 @@ export function MatchCard({ match, readOnly = false }: MatchCardProps) {
   });
 
   const isLocked = Boolean(match.isClosed) || readOnly;
+  const accessNote =
+    match.predictionAccessMode === "manual_open"
+      ? "El admin desbloqueo manualmente la edicion para este partido."
+      : match.predictionAccessMode === "manual_locked"
+        ? "El admin bloqueo manualmente la edicion para este partido."
+        : "Puedes editar tu pronostico hasta 15 minutos antes de que inicie el partido. Despues de ese cierre ya no se puede modificar.";
 
   const mutation = useMutation({
     mutationFn: async () =>
@@ -72,6 +79,12 @@ export function MatchCard({ match, readOnly = false }: MatchCardProps) {
         <span className="rounded-full border border-primary/15 bg-primary/8 px-3 py-1 text-primary">{formatMatchStage(match.stage)}</span>
         {match.group ? <span className="rounded-full border border-border bg-muted px-3 py-1 text-muted-foreground">Grupo {match.group}</span> : null}
         <span className="rounded-full border border-border bg-card px-3 py-1 text-muted-foreground">{formatMatchStatus(match.status)}</span>
+        {match.predictionAccessMode === "manual_open" ? (
+          <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-emerald-700">Edicion desbloqueada</span>
+        ) : null}
+        {match.predictionAccessMode === "manual_locked" ? (
+          <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-amber-700">Edicion bloqueada</span>
+        ) : null}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-center">
@@ -201,7 +214,7 @@ export function MatchCard({ match, readOnly = false }: MatchCardProps) {
           </button>
         </div>
         <p className="mt-3 text-xs leading-5 text-muted-foreground">
-          Puedes editar tu pronostico hasta 15 minutos antes de que inicie el partido. Despues de ese cierre ya no se puede modificar.
+          {accessNote}
         </p>
       </div>
     </div>

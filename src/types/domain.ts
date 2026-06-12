@@ -5,6 +5,7 @@ export type InviteCodeStatus = "available" | "used" | "disabled";
 export type MatchStatus = "scheduled" | "live" | "finished";
 export type PredictionCutoffMode = "match_start" | "first_match_start";
 export type AnticipationAvailabilityMode = "scheduled" | "manual_open" | "manual_locked";
+export type MatchPredictionAccessMode = "scheduled" | "manual_open" | "manual_locked";
 export type MatchStage =
   | "group"
   | "round_of_32"
@@ -60,6 +61,7 @@ export interface IMatch {
   homeScore?: number | null;
   awayScore?: number | null;
   resultLoadedAt?: Date | null;
+  predictionAccessMode?: MatchPredictionAccessMode;
   createdAt?: Date;
   updatedAt?: Date;
 }

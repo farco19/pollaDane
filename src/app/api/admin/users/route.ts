@@ -1,4 +1,4 @@
-﻿import { bootstrapDataLayer } from "@/lib/server/data";
+﻿﻿import { bootstrapDataLayer } from "@/lib/server/data";
 import { fail, ok } from "@/lib/server/api";
 import { requireAdminUser } from "@/lib/server/session";
 import { AnticipationPrediction } from "@/models/AnticipationPrediction";

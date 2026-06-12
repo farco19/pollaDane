@@ -5,7 +5,7 @@ import { buildLeaderboard } from "@/lib/server/leaderboard";
 import { defaultPrizeDistribution } from "@/lib/server/prize";
 import { calculatePredictionPoints } from "@/lib/server/scoring/calculatePredictionPoints";
 import { defaultAnticipationScoring, defaultMatchScoring } from "@/lib/server/scoring/rules";
-import { getFirstMatchDate, isPredictionClosed } from "@/lib/server/tournament";
+import { getFirstMatchDate, isMatchPredictionClosed } from "@/lib/server/tournament";
 import { Match } from "@/models/Match";
 import { Prediction } from "@/models/Prediction";
 import { TournamentSettings } from "@/models/TournamentSettings";
@@ -38,6 +38,7 @@ function getNormalizedSettings(settings: any) {
 }
 
 function serializeMatch(match: any, settings: any, firstMatchDate: Date | null, prediction?: any) {
+  const predictionAccessMode = match.predictionAccessMode ?? "scheduled";
   return {
     _id: String(match._id),
     stage: match.stage,
@@ -45,13 +46,14 @@ function serializeMatch(match: any, settings: any, firstMatchDate: Date | null, 
     stadium: match.stadium,
     matchDate: match.matchDate,
     status: match.status,
-    isClosed:
-      match.status === "finished" ||
-      isPredictionClosed({
-        mode: settings.predictionCutoffMode,
-        matchDate: match.matchDate,
-        firstMatchDate,
-      }),
+    predictionAccessMode,
+    isClosed: isMatchPredictionClosed({
+      matchStatus: match.status,
+      predictionAccessMode,
+      mode: settings.predictionCutoffMode,
+      matchDate: match.matchDate,
+      firstMatchDate,
+    }),
     homeScore: match.homeScore ?? null,
     awayScore: match.awayScore ?? null,
     homeTeam: {

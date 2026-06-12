@@ -6,6 +6,12 @@ import { matchCreateSchema } from "@/lib/validators/match";
 import { Match } from "@/models/Match";
 import { Prediction } from "@/models/Prediction";
 import { Team } from "@/models/Team";
+import { z } from "zod";
+
+const matchAccessSchema = z.object({
+  id: z.string().regex(/^[a-f\d]{24}$/i, "Id invalido"),
+  predictionAccessMode: z.enum(["scheduled", "manual_open", "manual_locked"]),
+});
 
 export async function GET() {
   try {
@@ -105,9 +111,52 @@ export async function POST(request: Request) {
     const match = await Match.create({
       ...parsed.data,
       group,
+      predictionAccessMode: "scheduled",
     });
     return ok({ _id: String(match._id) }, "Partido creado");
   } catch (error) {
     return fail(error instanceof Error ? error.message : "No fue posible crear el partido", 500);
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    await requireAdminUser();
+    await bootstrapDataLayer();
+    const json = await request.json().catch(() => ({}));
+    const parsed = matchAccessSchema.safeParse(json);
+
+    if (!parsed.success) {
+      return fail("Solicitud invalida", 400, "VALIDATION_ERROR", parsed.error.flatten());
+    }
+
+    const match = await Match.findById(parsed.data.id).lean();
+
+    if (!match) {
+      return fail("Partido no encontrado", 404);
+    }
+
+    if (match.status === "finished") {
+      return fail("No puedes cambiar la edicion de pronosticos en un partido finalizado", 409);
+    }
+
+    await Match.updateOne(
+      { _id: match._id },
+      {
+        $set: {
+          predictionAccessMode: parsed.data.predictionAccessMode,
+        },
+      },
+    );
+
+    return ok(
+      {
+        _id: String(match._id),
+        predictionAccessMode: parsed.data.predictionAccessMode,
+      },
+      "Estado de edicion actualizado",
+    );
+  } catch (error) {
+    return fail(error instanceof Error ? error.message : "No fue posible actualizar el estado de edicion", 500);
   }
 }

@@ -14,6 +14,7 @@ const MatchSchema = new Schema<IMatch>(
     homeScore: { type: Number, default: null, min: 0 },
     awayScore: { type: Number, default: null, min: 0 },
     resultLoadedAt: { type: Date, default: null },
+    predictionAccessMode: { type: String, enum: ["scheduled", "manual_open", "manual_locked"], default: "scheduled", required: true },
   },
   { timestamps: true },
 );

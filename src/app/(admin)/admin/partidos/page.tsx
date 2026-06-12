@@ -23,6 +23,8 @@ interface MatchListItem {
   stadium: string;
   matchDate: string;
   status: string;
+  isClosed?: boolean;
+  predictionAccessMode?: "scheduled" | "manual_open" | "manual_locked";
   homeTeam: {
     name: string;
     shortName: string;
@@ -38,6 +40,18 @@ interface MatchListItem {
 interface AdminMatchesResponse {
   teams: TeamOption[];
   matches: MatchListItem[];
+}
+
+function formatPredictionAccessMode(mode?: "scheduled" | "manual_open" | "manual_locked") {
+  if (mode === "manual_open") {
+    return "Edicion desbloqueada manualmente";
+  }
+
+  if (mode === "manual_locked") {
+    return "Edicion bloqueada manualmente";
+  }
+
+  return "Edicion automatica por horario";
 }
 
 interface TeamPickerProps {
@@ -186,6 +200,28 @@ export default function AdminMatchesPage() {
     },
     onError: (err: Error) => toast.error(err.message),
   });
+  const accessMutation = useMutation({
+    mutationFn: ({ matchId, predictionAccessMode }: { matchId: string; predictionAccessMode: "scheduled" | "manual_open" | "manual_locked" }) =>
+      apiFetch("/api/admin/matches", {
+        method: "PATCH",
+        body: JSON.stringify({ id: matchId, predictionAccessMode }),
+      }),
+    onSuccess: (_, variables) => {
+      const actionLabel =
+        variables.predictionAccessMode === "manual_open"
+          ? "Edicion desbloqueada"
+          : variables.predictionAccessMode === "manual_locked"
+            ? "Edicion bloqueada"
+            : "Partido devuelto a horario automatico";
+      toast.success(actionLabel);
+      queryClient.invalidateQueries({ queryKey: ["admin-matches"] });
+      queryClient.invalidateQueries({ queryKey: ["participant-matches"] });
+      queryClient.invalidateQueries({ queryKey: ["participant-dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["participant-predictions"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
   const canCreateMatch =
     form.homeTeamId !== "" &&
     form.awayTeamId !== "" &&
@@ -298,6 +334,56 @@ export default function AdminMatchesPage() {
                 <div>
                   {formatMatchStage(match.stage)} | {formatMatchDate(match.matchDate)} | {match.stadium}
                 </div>
+                <div className="flex flex-wrap gap-2 sm:justify-end">
+                  <span
+                    className={cn(
+                      "rounded-full border px-3 py-1 text-xs font-medium",
+                      match.predictionAccessMode === "manual_open"
+                        ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700"
+                        : match.predictionAccessMode === "manual_locked"
+                          ? "border-amber-500/20 bg-amber-500/10 text-amber-700"
+                          : "border-border bg-card text-muted-foreground",
+                    )}
+                  >
+                    {formatPredictionAccessMode(match.predictionAccessMode)}
+                  </span>
+                  <span
+                    className={cn(
+                      "rounded-full border px-3 py-1 text-xs font-medium",
+                      match.isClosed ? "border-destructive/20 bg-destructive/10 text-destructive" : "border-primary/15 bg-primary/8 text-primary",
+                    )}
+                  >
+                    {match.isClosed ? "Cerrado para usuarios" : "Abierto para usuarios"}
+                  </span>
+                </div>
+                {match.status !== "finished" ? (
+                  <div className="flex flex-wrap gap-2 sm:justify-end">
+                    <button
+                      type="button"
+                      onClick={() => accessMutation.mutate({ matchId: match._id, predictionAccessMode: "manual_open" })}
+                      disabled={accessMutation.isPending}
+                      className="rounded-xl border border-emerald-500/20 px-3 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-500/5 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Desbloquear edicion
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => accessMutation.mutate({ matchId: match._id, predictionAccessMode: "manual_locked" })}
+                      disabled={accessMutation.isPending}
+                      className="rounded-xl border border-amber-500/20 px-3 py-2 text-sm font-medium text-amber-700 transition hover:bg-amber-500/5 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Bloquear edicion
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => accessMutation.mutate({ matchId: match._id, predictionAccessMode: "scheduled" })}
+                      disabled={accessMutation.isPending}
+                      className="rounded-xl border border-border px-3 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Usar horario automatico
+                    </button>
+                  </div>
+                ) : null}
                 {match.status === "scheduled" && new Date(match.matchDate).getTime() > pageLoadedAt ? (
                   <button
                     type="button"

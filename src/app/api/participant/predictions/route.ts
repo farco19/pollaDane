@@ -1,6 +1,6 @@
 import { getPredictionsForUser, bootstrapDataLayer } from "@/lib/server/data";
 import { fail, ok } from "@/lib/server/api";
-import { getFirstMatchDate, isPredictionClosed } from "@/lib/server/tournament";
+import { getFirstMatchDate, isMatchPredictionClosed } from "@/lib/server/tournament";
 import { requireSessionUser } from "@/lib/server/session";
 import { predictionCreateSchema } from "@/lib/validators/prediction";
 import { Match } from "@/models/Match";
@@ -43,13 +43,21 @@ export async function POST(request: Request) {
     const predictionCutoffMode = settings?.predictionCutoffMode ?? "match_start";
 
     if (
-      isPredictionClosed({
+      isMatchPredictionClosed({
+        matchStatus: match.status,
+        predictionAccessMode: match.predictionAccessMode ?? "scheduled",
         mode: predictionCutoffMode,
         matchDate: match.matchDate,
         firstMatchDate,
       })
     ) {
-      return fail("Este partido se cierra 15 minutos antes de iniciar y ya no admite pronosticos", 400, "MATCH_CLOSED");
+      const message =
+        match.status === "finished"
+          ? "Este partido ya finalizo y no admite cambios"
+          : match.predictionAccessMode === "manual_locked"
+            ? "La edicion de pronosticos para este partido fue bloqueada manualmente por el administrador"
+            : "Este partido se cierra 15 minutos antes de iniciar y ya no admite pronosticos";
+      return fail(message, 400, "MATCH_CLOSED");
     }
 
     const prediction = await Prediction.findOneAndUpdate(
