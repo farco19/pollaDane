@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { CalendarDays, LayoutDashboard, ListOrdered, Settings, ShieldCheck, Target, Trophy, Users } from "lucide-react";
+import { CalendarDays, LayoutDashboard, ListOrdered, Radio, Settings, ShieldCheck, Target, Trophy, Users } from "lucide-react";
 
 export interface NavItem {
   href: string;
@@ -10,6 +10,7 @@ export interface NavItem {
 export const participantNav: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/partidos", label: "Partidos", icon: CalendarDays },
+  { href: "/en-vivo", label: "En vivo", icon: Radio },
   { href: "/anticipados", label: "Anticipados", icon: ShieldCheck },
   { href: "/clasificacion", label: "Clasificacion", icon: Trophy },
   { href: "/mis-pronosticos", label: "Pronosticos", icon: Target },

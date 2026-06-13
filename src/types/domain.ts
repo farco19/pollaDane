@@ -106,6 +106,11 @@ export interface ITournamentSettings {
   };
   anticipationAvailabilityMode: AnticipationAvailabilityMode;
   officialBestThirdTeamIds?: Types.ObjectId[];
+  liveSync?: {
+    lastAttemptAt?: Date | null;
+    lastSuccessAt?: Date | null;
+    lastError?: string | null;
+  };
   updatedBy?: Types.ObjectId | null;
   createdAt?: Date;
   updatedAt?: Date;

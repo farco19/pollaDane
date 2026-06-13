@@ -1,8 +1,10 @@
-﻿import { getMatchesForUser } from "@/lib/server/data";
+import { getMatchesForUser } from "@/lib/server/data";
 import { fail, ok } from "@/lib/server/api";
+import { syncExternalLiveMatchesIfNeeded } from "@/lib/server/live-sync";
 
 export async function GET() {
   try {
+    await syncExternalLiveMatchesIfNeeded();
     const matches = await getMatchesForUser();
     const finished = matches.filter((match) => match.homeScore != null && match.awayScore != null);
     return ok(finished);

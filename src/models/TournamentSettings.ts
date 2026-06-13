@@ -30,6 +30,11 @@ const TournamentSettingsSchema = new Schema<ITournamentSettings>(
     },
     anticipationAvailabilityMode: { type: String, enum: ["scheduled", "manual_open", "manual_locked"], default: "scheduled", required: true },
     officialBestThirdTeamIds: [{ type: Schema.Types.ObjectId, ref: "Team" }],
+    liveSync: {
+      lastAttemptAt: { type: Date, default: null },
+      lastSuccessAt: { type: Date, default: null },
+      lastError: { type: String, default: null, maxlength: 500 },
+    },
     updatedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
   },
   { timestamps: true },
