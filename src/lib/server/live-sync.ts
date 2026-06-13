@@ -39,7 +39,7 @@ type ExternalGame = {
 };
 
 type LocalMatchWithTeams = {
-  _id: unknown;
+  _id: string | { toString(): string };
   stage: MatchStage;
   status: MatchStatus;
   homeScore?: number | null;
@@ -307,7 +307,7 @@ export async function syncExternalLiveMatchesIfNeeded(): Promise<LiveSyncSummary
         }
 
         if (Object.keys(nextValues).length) {
-          await Match.updateOne({ _id: match._id, status: { $ne: "finished" } }, { $set: nextValues });
+          await Match.updateOne({ _id: matchId, status: { $ne: "finished" } }, { $set: nextValues });
           updatedLiveCount += 1;
         }
         continue;
@@ -315,7 +315,7 @@ export async function syncExternalLiveMatchesIfNeeded(): Promise<LiveSyncSummary
 
       if (match.status === "live") {
         await Match.updateOne(
-          { _id: match._id, status: { $ne: "finished" } },
+          { _id: matchId, status: { $ne: "finished" } },
           { $set: { status: "scheduled", homeScore: null, awayScore: null } },
         );
         updatedLiveCount += 1;

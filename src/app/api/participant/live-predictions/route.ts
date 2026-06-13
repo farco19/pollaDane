@@ -7,6 +7,13 @@ import { Prediction } from "@/models/Prediction";
 import { TournamentSettings } from "@/models/TournamentSettings";
 import { User } from "@/models/User";
 
+type PopulatedTeamRef = {
+  _id?: unknown;
+  name?: string;
+  shortName?: string;
+  flagUrl?: string | null;
+} | null | undefined;
+
 type LiveMatch = {
   _id: string;
   stage: string;
@@ -29,6 +36,15 @@ type LiveMatch = {
     flagUrl: string | null;
   };
 };
+
+function serializeTeam(team: PopulatedTeamRef, fallbackName: string, fallbackShortName: string) {
+  return {
+    _id: String(team?._id ?? ""),
+    name: team?.name ?? fallbackName,
+    shortName: team?.shortName ?? fallbackShortName,
+    flagUrl: team?.flagUrl ?? null,
+  };
+}
 
 export async function GET() {
   try {
@@ -71,18 +87,8 @@ export async function GET() {
         status: match.status,
         homeScore: match.homeScore ?? null,
         awayScore: match.awayScore ?? null,
-        homeTeam: {
-          _id: String(match.homeTeamId?._id ?? match.homeTeamId),
-          name: match.homeTeamId?.name ?? "Equipo local",
-          shortName: match.homeTeamId?.shortName ?? "LOC",
-          flagUrl: match.homeTeamId?.flagUrl ?? null,
-        },
-        awayTeam: {
-          _id: String(match.awayTeamId?._id ?? match.awayTeamId),
-          name: match.awayTeamId?.name ?? "Equipo visitante",
-          shortName: match.awayTeamId?.shortName ?? "VIS",
-          flagUrl: match.awayTeamId?.flagUrl ?? null,
-        },
+        homeTeam: serializeTeam(match.homeTeamId as PopulatedTeamRef, "Equipo local", "LOC"),
+        awayTeam: serializeTeam(match.awayTeamId as PopulatedTeamRef, "Equipo visitante", "VIS"),
       };
 
       return {
