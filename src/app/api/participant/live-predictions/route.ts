@@ -100,7 +100,8 @@ export async function GET() {
     return ok({
       matches: liveMatches,
       sync: {
-        provider: "worldcup26.ir",
+        provider: "API-Football",
+        lastAttemptAt: settings?.liveSync?.lastAttemptAt ?? null,
         lastSuccessAt: settings?.liveSync?.lastSuccessAt ?? syncSummary.lastSuccessAt ?? null,
         lastError: settings?.liveSync?.lastError ?? syncSummary.error ?? null,
         attempted: syncSummary.attempted,

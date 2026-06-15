@@ -1,4 +1,5 @@
-import type { MatchStage, MatchStatus } from "@/types/domain";
+import type { MatchStatus } from "@/types/domain";
+import { getColombiaDateKey } from "@/lib/match-datetime";
 import { connectToDatabase } from "@/lib/db";
 import { applyMatchResult, bootstrapDataLayer } from "@/lib/server/data";
 import { buildLeaderboard } from "@/lib/server/leaderboard";
@@ -6,41 +7,49 @@ import { sendMatchResultNotifications } from "@/lib/server/push";
 import { Match } from "@/models/Match";
 import { TournamentSettings } from "@/models/TournamentSettings";
 
-const EXTERNAL_GAMES_URL = "https://worldcup26.ir/get/games";
-const EXTERNAL_TEAMS_URL = "https://worldcup26.ir/get/teams";
-const LIVE_SYNC_INTERVAL_MS = 30 * 1000;
+const API_FOOTBALL_BASE_URL = process.env.API_FOOTBALL_BASE_URL ?? "https://v3.football.api-sports.io";
+const API_FOOTBALL_KEY = process.env.API_FOOTBALL_KEY;
+const API_FOOTBALL_LEAGUE_ID = process.env.API_FOOTBALL_LEAGUE_ID ?? "1";
+const API_FOOTBALL_SEASON = process.env.API_FOOTBALL_SEASON ?? "2026";
+const GLOBAL_SYNC_LOCK_MS = 60 * 1000;
+const PER_MATCH_REQUEST_LIMIT = 25;
+const MATCH_TRACKING_WINDOW_MS = 150 * 60 * 1000;
+const PER_MATCH_POLL_INTERVAL_MS = Math.ceil(MATCH_TRACKING_WINDOW_MS / PER_MATCH_REQUEST_LIMIT);
 const EXTERNAL_FETCH_TIMEOUT_MS = 10 * 1000;
+const API_FOOTBALL_PROVIDER = "API-Football";
+const API_FOOTBALL_TIMEZONE = "America/Bogota";
 
-type ExternalTeamsResponse = {
-  teams?: ExternalTeam[];
+type ApiFootballFixtureResponse = {
+  response?: ApiFootballFixture[];
 };
 
-type ExternalGamesResponse = {
-  games?: ExternalGame[];
-};
-
-type ExternalTeam = {
-  id: string;
-  fifa_code?: string | null;
-  name_en?: string | null;
-};
-
-type ExternalGame = {
-  id: string;
-  type?: string | null;
-  home_team_id?: string | null;
-  away_team_id?: string | null;
-  home_team_name_en?: string | null;
-  away_team_name_en?: string | null;
-  home_score?: string | number | null;
-  away_score?: string | number | null;
-  finished?: string | boolean | null;
-  time_elapsed?: string | number | null;
+type ApiFootballFixture = {
+  fixture?: {
+    id?: number;
+    date?: string | null;
+    status?: {
+      short?: string | null;
+      long?: string | null;
+      elapsed?: number | null;
+    } | null;
+  } | null;
+  teams?: {
+    home?: {
+      name?: string | null;
+    } | null;
+    away?: {
+      name?: string | null;
+    } | null;
+  } | null;
+  goals?: {
+    home?: number | null;
+    away?: number | null;
+  } | null;
 };
 
 type LocalMatchWithTeams = {
   _id: string | { toString(): string };
-  stage: MatchStage;
+  matchDate: Date;
   status: MatchStatus;
   homeScore?: number | null;
   awayScore?: number | null;
@@ -51,6 +60,13 @@ type LocalMatchWithTeams = {
   awayTeamId?: {
     code?: string | null;
     name?: string | null;
+  } | null;
+  liveSync?: {
+    provider?: string | null;
+    externalFixtureId?: number | null;
+    trackingStartedAt?: Date | null;
+    lastPolledAt?: Date | null;
+    requestCount?: number;
   } | null;
 };
 
@@ -67,93 +83,161 @@ function normalizeText(value: string | null | undefined) {
   return String(value ?? "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    .replace(/&/g, " and ")
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
     .trim()
     .toLowerCase();
 }
 
-function parseScore(value: string | number | null | undefined) {
-  if (value == null || value === "") {
-    return null;
+function getTeamAliases(code: string | null | undefined, name: string | null | undefined) {
+  const normalizedName = normalizeText(name);
+  const aliases = new Set<string>();
+  if (normalizedName) {
+    aliases.add(normalizedName);
   }
 
-  const parsed = Number.parseInt(String(value), 10);
-  return Number.isNaN(parsed) ? null : parsed;
-}
+  const aliasMap: Record<string, string[]> = {
+    BIH: ["bosnia and herzegovina", "bosnia herzegovina"],
+    CIV: ["ivory coast", "cote d ivoire", "cote divoire"],
+    COD: ["democratic republic of the congo", "dr congo", "congo dr"],
+    CPV: ["cape verde", "cabo verde"],
+    CUW: ["curacao", "curaçao"],
+    CZE: ["czech republic", "czechia"],
+    IRN: ["iran", "iran ir"],
+    KOR: ["south korea", "korea republic"],
+    KSA: ["saudi arabia"],
+    TUR: ["turkey", "turkiye"],
+    USA: ["united states", "usa", "united states of america"],
+  };
 
-function parseFinished(value: string | boolean | null | undefined) {
-  if (typeof value === "boolean") {
-    return value;
+  for (const alias of aliasMap[String(code ?? "").toUpperCase()] ?? []) {
+    aliases.add(normalizeText(alias));
   }
 
-  const normalized = normalizeText(String(value ?? ""));
-  return normalized === "true" || normalized === "1" || normalized === "yes";
+  return aliases;
 }
 
-function getExternalStatus(match: ExternalGame): MatchStatus {
-  if (parseFinished(match.finished)) {
+function getFixtureStatusShort(fixture: ApiFootballFixture) {
+  return String(fixture.fixture?.status?.short ?? "").trim().toUpperCase();
+}
+
+function getFixtureStatus(fixture: ApiFootballFixture): MatchStatus {
+  const status = getFixtureStatusShort(fixture);
+  if (["FT", "AET", "PEN"].includes(status)) {
     return "finished";
   }
 
-  const elapsed = normalizeText(String(match.time_elapsed ?? ""));
-  return elapsed && elapsed !== "notstarted" ? "live" : "scheduled";
+  if (["NS", "TBD", "PST", "CANC", "ABD", "AWD", "WO"].includes(status)) {
+    return "scheduled";
+  }
+
+  return "live";
 }
 
-function mapExternalStage(value: string | null | undefined): MatchStage | null {
-  const normalized = normalizeText(value);
-
-  if (normalized === "group") return "group";
-  if (normalized === "r32") return "round_of_32";
-  if (normalized === "r16") return "round_of_16";
-  if (normalized === "qf") return "quarter_final";
-  if (normalized === "sf") return "semi_final";
-  if (normalized === "third") return "third_place";
-  if (normalized === "final") return "final";
-
-  return null;
+function getFixtureId(fixture: ApiFootballFixture) {
+  return fixture.fixture?.id ?? null;
 }
 
-function buildMatchKey(params: {
-  stage: MatchStage | null;
-  homeCode?: string | null;
-  awayCode?: string | null;
-  homeName?: string | null;
-  awayName?: string | null;
-}) {
-  if (!params.stage) {
+function getFixtureDate(fixture: ApiFootballFixture) {
+  const value = fixture.fixture?.date;
+  if (!value) {
     return null;
   }
 
-  const homeCode = normalizeText(params.homeCode);
-  const awayCode = normalizeText(params.awayCode);
-  if (homeCode && awayCode) {
-    return `${params.stage}|${homeCode}|${awayCode}`;
-  }
-
-  const homeName = normalizeText(params.homeName);
-  const awayName = normalizeText(params.awayName);
-  if (homeName && awayName) {
-    return `${params.stage}|${homeName}|${awayName}`;
-  }
-
-  return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-async function fetchJson<T>(url: string) {
+function getMatchId(match: LocalMatchWithTeams) {
+  return String(match._id);
+}
+
+function getRequestCount(match: LocalMatchWithTeams) {
+  return Math.max(0, match.liveSync?.requestCount ?? 0);
+}
+
+function getExternalFixtureId(match: LocalMatchWithTeams) {
+  return match.liveSync?.externalFixtureId ?? null;
+}
+
+function isTrackingEligible(match: LocalMatchWithTeams, now: Date) {
+  const matchTime = new Date(match.matchDate).getTime();
+  const nowTime = now.getTime();
+  return nowTime >= matchTime && nowTime <= matchTime + MATCH_TRACKING_WINDOW_MS;
+}
+
+function isMatchEligibleForPoll(match: LocalMatchWithTeams, now: Date) {
+  if (!isTrackingEligible(match, now)) {
+    return false;
+  }
+
+  if (match.status === "finished") {
+    return false;
+  }
+
+  if (getRequestCount(match) >= PER_MATCH_REQUEST_LIMIT) {
+    return false;
+  }
+
+  const lastPolledAt = match.liveSync?.lastPolledAt ? new Date(match.liveSync.lastPolledAt) : null;
+  if (!lastPolledAt) {
+    return true;
+  }
+
+  return now.getTime() - lastPolledAt.getTime() >= PER_MATCH_POLL_INTERVAL_MS;
+}
+
+function fixtureMatchesLocalMatch(fixture: ApiFootballFixture, match: LocalMatchWithTeams) {
+  const localHomeAliases = getTeamAliases(match.homeTeamId?.code ?? null, match.homeTeamId?.name ?? null);
+  const localAwayAliases = getTeamAliases(match.awayTeamId?.code ?? null, match.awayTeamId?.name ?? null);
+  const fixtureHome = normalizeText(fixture.teams?.home?.name);
+  const fixtureAway = normalizeText(fixture.teams?.away?.name);
+
+  if (localHomeAliases.has(fixtureHome) && localAwayAliases.has(fixtureAway)) {
+    return true;
+  }
+
+  const fixtureDate = getFixtureDate(fixture);
+  if (!fixtureDate) {
+    return false;
+  }
+
+  const timeDiff = Math.abs(fixtureDate.getTime() - new Date(match.matchDate).getTime());
+  return timeDiff <= 3 * 60 * 60 * 1000 && localHomeAliases.has(fixtureHome) && localAwayAliases.has(fixtureAway);
+}
+
+function buildApiFootballUrl(path: string, query: Record<string, string | number | undefined>) {
+  const url = new URL(path, API_FOOTBALL_BASE_URL.endsWith("/") ? API_FOOTBALL_BASE_URL : `${API_FOOTBALL_BASE_URL}/`);
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined && value !== "") {
+      url.searchParams.set(key, String(value));
+    }
+  }
+  return url.toString();
+}
+
+async function fetchApiFootball<T>(path: string, query: Record<string, string | number | undefined>) {
+  if (!API_FOOTBALL_KEY) {
+    throw new Error("Falta configurar API_FOOTBALL_KEY");
+  }
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), EXTERNAL_FETCH_TIMEOUT_MS);
 
   try {
-    const response = await fetch(url, {
+    const response = await fetch(buildApiFootballUrl(path, query), {
       method: "GET",
       cache: "no-store",
       signal: controller.signal,
       headers: {
         Accept: "application/json",
+        "x-apisports-key": API_FOOTBALL_KEY,
       },
     });
 
     if (!response.ok) {
-      throw new Error(`Respuesta invalida del proveedor externo (${response.status})`);
+      throw new Error(`Respuesta invalida de API-Football (${response.status})`);
     }
 
     return (await response.json()) as T;
@@ -166,7 +250,7 @@ async function acquireSyncWindow() {
   await connectToDatabase();
 
   const now = new Date();
-  const threshold = new Date(now.getTime() - LIVE_SYNC_INTERVAL_MS);
+  const threshold = new Date(now.getTime() - GLOBAL_SYNC_LOCK_MS);
   const settings = await TournamentSettings.findOneAndUpdate(
     {
       $or: [
@@ -198,6 +282,134 @@ async function updateSyncStatus(params: { error?: string | null; success?: boole
   await TournamentSettings.updateOne({}, { $set: update });
 }
 
+async function markMatchesPolled(matchIds: string[], now: Date) {
+  if (!matchIds.length) {
+    return;
+  }
+
+  await Match.updateMany(
+    { _id: { $in: matchIds } },
+    {
+      $set: {
+        "liveSync.provider": API_FOOTBALL_PROVIDER,
+        "liveSync.lastPolledAt": now,
+      },
+      $inc: {
+        "liveSync.requestCount": 1,
+      },
+      $setOnInsert: {},
+    },
+  );
+
+  await Match.updateMany(
+    {
+      _id: { $in: matchIds },
+      $or: [{ "liveSync.trackingStartedAt": null }, { "liveSync.trackingStartedAt": { $exists: false } }],
+    },
+    {
+      $set: {
+        "liveSync.trackingStartedAt": now,
+      },
+    },
+  );
+}
+
+async function setFixtureId(matchId: string, fixtureId: number) {
+  await Match.updateOne(
+    { _id: matchId },
+    {
+      $set: {
+        "liveSync.provider": API_FOOTBALL_PROVIDER,
+        "liveSync.externalFixtureId": fixtureId,
+      },
+    },
+  );
+}
+
+async function applyFixtureState(match: LocalMatchWithTeams, fixture: ApiFootballFixture) {
+  const externalStatus = getFixtureStatus(fixture);
+  const homeScore = fixture.goals?.home ?? null;
+  const awayScore = fixture.goals?.away ?? null;
+  const matchId = getMatchId(match);
+  const fixtureId = getFixtureId(fixture);
+
+  if (fixtureId != null) {
+    await setFixtureId(matchId, fixtureId);
+  }
+
+  if (match.status === "finished") {
+    return { updatedLiveCount: 0, finalizedCount: 0 };
+  }
+
+  if (externalStatus === "finished") {
+    if (homeScore == null || awayScore == null) {
+      return { updatedLiveCount: 0, finalizedCount: 0 };
+    }
+
+    const leaderboardBefore = await buildLeaderboard();
+    const updatedMatch = await applyMatchResult(matchId, homeScore, awayScore);
+    const leaderboardAfter = await buildLeaderboard();
+    await sendMatchResultNotifications({
+      matchId: String(updatedMatch._id),
+      leaderboardBefore,
+      leaderboardAfter,
+    });
+    return { updatedLiveCount: 0, finalizedCount: 1 };
+  }
+
+  const nextValues: Record<string, unknown> = {
+    "liveSync.provider": API_FOOTBALL_PROVIDER,
+  };
+  if (externalStatus === "live" && match.status !== "live") {
+    nextValues.status = "live";
+  }
+  if (externalStatus === "scheduled" && match.status === "live") {
+    nextValues.status = "scheduled";
+    nextValues.homeScore = null;
+    nextValues.awayScore = null;
+  } else {
+    if (homeScore != null && homeScore !== match.homeScore) {
+      nextValues.homeScore = homeScore;
+    }
+    if (awayScore != null && awayScore !== match.awayScore) {
+      nextValues.awayScore = awayScore;
+    }
+  }
+
+  if (Object.keys(nextValues).length > 1 || nextValues.status) {
+    await Match.updateOne({ _id: matchId, status: { $ne: "finished" } }, { $set: nextValues });
+    return { updatedLiveCount: 1, finalizedCount: 0 };
+  }
+
+  return { updatedLiveCount: 0, finalizedCount: 0 };
+}
+
+async function fetchLiveFixtures() {
+  const payload = await fetchApiFootball<ApiFootballFixtureResponse>("fixtures", {
+    live: API_FOOTBALL_LEAGUE_ID,
+    timezone: API_FOOTBALL_TIMEZONE,
+  });
+  return payload.response ?? [];
+}
+
+async function fetchFixtureById(fixtureId: number) {
+  const payload = await fetchApiFootball<ApiFootballFixtureResponse>("fixtures", {
+    id: fixtureId,
+    timezone: API_FOOTBALL_TIMEZONE,
+  });
+  return payload.response?.[0] ?? null;
+}
+
+async function discoverFixturesByDate(date: string) {
+  const payload = await fetchApiFootball<ApiFootballFixtureResponse>("fixtures", {
+    league: API_FOOTBALL_LEAGUE_ID,
+    season: API_FOOTBALL_SEASON,
+    date,
+    timezone: API_FOOTBALL_TIMEZONE,
+  });
+  return payload.response ?? [];
+}
+
 export async function syncExternalLiveMatchesIfNeeded(): Promise<LiveSyncSummary> {
   await bootstrapDataLayer();
 
@@ -215,110 +427,104 @@ export async function syncExternalLiveMatchesIfNeeded(): Promise<LiveSyncSummary
   }
 
   try {
-    const [externalTeamsResponse, externalGamesResponse, localMatches] = await Promise.all([
-      fetchJson<ExternalTeamsResponse>(EXTERNAL_TEAMS_URL),
-      fetchJson<ExternalGamesResponse>(EXTERNAL_GAMES_URL),
-      Match.find({})
-        .select({ stage: 1, status: 1, homeScore: 1, awayScore: 1, homeTeamId: 1, awayTeamId: 1 })
-        .populate("homeTeamId awayTeamId", "code name")
-        .lean<LocalMatchWithTeams[]>(),
-    ]);
+    const now = new Date();
+    const localMatches = await Match.find({})
+      .select({
+        matchDate: 1,
+        status: 1,
+        homeScore: 1,
+        awayScore: 1,
+        homeTeamId: 1,
+        awayTeamId: 1,
+        liveSync: 1,
+      })
+      .populate("homeTeamId awayTeamId", "code name")
+      .lean<LocalMatchWithTeams[]>();
 
-    const externalTeamMap = new Map<string, ExternalTeam>();
-    for (const team of externalTeamsResponse.teams ?? []) {
-      externalTeamMap.set(String(team.id), team);
-    }
-
-    const externalMatchMap = new Map<string, ExternalGame>();
-    for (const game of externalGamesResponse.games ?? []) {
-      const stage = mapExternalStage(game.type);
-      const homeTeam = externalTeamMap.get(String(game.home_team_id ?? ""));
-      const awayTeam = externalTeamMap.get(String(game.away_team_id ?? ""));
-      const key = buildMatchKey({
-        stage,
-        homeCode: homeTeam?.fifa_code,
-        awayCode: awayTeam?.fifa_code,
-        homeName: game.home_team_name_en ?? homeTeam?.name_en ?? null,
-        awayName: game.away_team_name_en ?? awayTeam?.name_en ?? null,
-      });
-
-      if (key) {
-        externalMatchMap.set(key, game);
-      }
+    const eligibleMatches = localMatches.filter((match) => isMatchEligibleForPoll(match, now));
+    if (!eligibleMatches.length) {
+      const latestSettings = await TournamentSettings.findOne().lean();
+      return {
+        attempted: false,
+        skipped: true,
+        updatedLiveCount: 0,
+        finalizedCount: 0,
+        error: latestSettings?.liveSync?.lastError ?? null,
+        lastSuccessAt: latestSettings?.liveSync?.lastSuccessAt ?? null,
+      };
     }
 
     let updatedLiveCount = 0;
     let finalizedCount = 0;
 
-    for (const match of localMatches) {
-      const key = buildMatchKey({
-        stage: match.stage,
-        homeCode: match.homeTeamId?.code ?? null,
-        awayCode: match.awayTeamId?.code ?? null,
-        homeName: match.homeTeamId?.name ?? null,
-        awayName: match.awayTeamId?.name ?? null,
-      });
+    const liveSnapshot = await fetchLiveFixtures();
+    const matchedLiveIds = new Set<string>();
+    await markMatchesPolled(
+      eligibleMatches
+        .filter((match) => match.status === "live" || getExternalFixtureId(match) == null)
+        .map((match) => getMatchId(match)),
+      now,
+    );
 
-      if (!key) {
+    for (const match of eligibleMatches) {
+      const matchedFixture =
+        liveSnapshot.find((fixture) => {
+          const fixtureId = getFixtureId(fixture);
+          return fixtureId != null && fixtureId === getExternalFixtureId(match);
+        }) ??
+        liveSnapshot.find((fixture) => fixtureMatchesLocalMatch(fixture, match));
+
+      if (!matchedFixture) {
         continue;
       }
 
-      const externalMatch = externalMatchMap.get(key);
-      if (!externalMatch) {
+      matchedLiveIds.add(getMatchId(match));
+      const result = await applyFixtureState(match, matchedFixture);
+      updatedLiveCount += result.updatedLiveCount;
+      finalizedCount += result.finalizedCount;
+    }
+
+    const trackedMatches = eligibleMatches.filter(
+      (match) => !matchedLiveIds.has(getMatchId(match)) && getExternalFixtureId(match) != null,
+    );
+    for (const match of trackedMatches) {
+      const fixtureId = getExternalFixtureId(match);
+      if (fixtureId == null) {
         continue;
       }
 
-      const externalStatus = getExternalStatus(externalMatch);
-      const homeScore = parseScore(externalMatch.home_score);
-      const awayScore = parseScore(externalMatch.away_score);
-      const matchId = String(match._id);
-
-      if (match.status === "finished") {
+      await markMatchesPolled([getMatchId(match)], now);
+      const fixture = await fetchFixtureById(fixtureId);
+      if (!fixture) {
         continue;
       }
 
-      if (externalStatus === "finished") {
-        if (homeScore == null || awayScore == null) {
+      const result = await applyFixtureState(match, fixture);
+      updatedLiveCount += result.updatedLiveCount;
+      finalizedCount += result.finalizedCount;
+    }
+
+    const needsDiscovery = eligibleMatches.filter(
+      (match) => !matchedLiveIds.has(getMatchId(match)) && getExternalFixtureId(match) == null,
+    );
+    const discoveryDates = Array.from(new Set(needsDiscovery.map((match) => getColombiaDateKey(match.matchDate))));
+    for (const date of discoveryDates) {
+      const matchesForDate = needsDiscovery.filter((match) => getColombiaDateKey(match.matchDate) === date);
+      if (!matchesForDate.length) {
+        continue;
+      }
+
+      await markMatchesPolled(matchesForDate.map((match) => getMatchId(match)), now);
+      const fixtures = await discoverFixturesByDate(date);
+      for (const match of matchesForDate) {
+        const fixture = fixtures.find((item) => fixtureMatchesLocalMatch(item, match));
+        if (!fixture) {
           continue;
         }
 
-        const leaderboardBefore = await buildLeaderboard();
-        const updatedMatch = await applyMatchResult(matchId, homeScore, awayScore);
-        const leaderboardAfter = await buildLeaderboard();
-        await sendMatchResultNotifications({
-          matchId: String(updatedMatch._id),
-          leaderboardBefore,
-          leaderboardAfter,
-        });
-        finalizedCount += 1;
-        continue;
-      }
-
-      if (externalStatus === "live") {
-        const nextValues: Record<string, unknown> = {};
-        if (match.status !== "live") {
-          nextValues.status = "live";
-        }
-        if (homeScore != null && homeScore !== match.homeScore) {
-          nextValues.homeScore = homeScore;
-        }
-        if (awayScore != null && awayScore !== match.awayScore) {
-          nextValues.awayScore = awayScore;
-        }
-
-        if (Object.keys(nextValues).length) {
-          await Match.updateOne({ _id: matchId, status: { $ne: "finished" } }, { $set: nextValues });
-          updatedLiveCount += 1;
-        }
-        continue;
-      }
-
-      if (match.status === "live") {
-        await Match.updateOne(
-          { _id: matchId, status: { $ne: "finished" } },
-          { $set: { status: "scheduled", homeScore: null, awayScore: null } },
-        );
-        updatedLiveCount += 1;
+        const result = await applyFixtureState(match, fixture);
+        updatedLiveCount += result.updatedLiveCount;
+        finalizedCount += result.finalizedCount;
       }
     }
 

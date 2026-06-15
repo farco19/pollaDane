@@ -62,6 +62,13 @@ export interface IMatch {
   awayScore?: number | null;
   resultLoadedAt?: Date | null;
   predictionAccessMode?: MatchPredictionAccessMode;
+  liveSync?: {
+    provider?: string | null;
+    externalFixtureId?: number | null;
+    trackingStartedAt?: Date | null;
+    lastPolledAt?: Date | null;
+    requestCount?: number;
+  };
   createdAt?: Date;
   updatedAt?: Date;
 }

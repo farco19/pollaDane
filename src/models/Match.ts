@@ -15,6 +15,13 @@ const MatchSchema = new Schema<IMatch>(
     awayScore: { type: Number, default: null, min: 0 },
     resultLoadedAt: { type: Date, default: null },
     predictionAccessMode: { type: String, enum: ["scheduled", "manual_open", "manual_locked"], default: "scheduled", required: true },
+    liveSync: {
+      provider: { type: String, default: null, maxlength: 40 },
+      externalFixtureId: { type: Number, default: null },
+      trackingStartedAt: { type: Date, default: null },
+      lastPolledAt: { type: Date, default: null },
+      requestCount: { type: Number, default: 0, min: 0 },
+    },
   },
   { timestamps: true },
 );

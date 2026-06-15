@@ -42,6 +42,7 @@ interface LivePredictionsResponse {
   matches: LivePredictionMatch[];
   sync: {
     provider: string;
+    lastAttemptAt: string | null;
     lastSuccessAt: string | null;
     lastError: string | null;
     attempted: boolean;
@@ -74,6 +75,35 @@ export default function LivePredictionsPage() {
     () => matches.find((match) => match._id === selectedMatchId) ?? matches[0] ?? null,
     [matches, selectedMatchId],
   );
+  const syncInfo = data?.sync;
+  const syncHeadline = useMemo(() => {
+    if (!syncInfo) {
+      return "Preparando sincronizacion automatica del marcador.";
+    }
+
+    if (syncInfo.lastSuccessAt) {
+      return `Ultima sincronizacion exitosa desde ${syncInfo.provider}: ${formatMatchDate(syncInfo.lastSuccessAt)}.`;
+    }
+
+    if (syncInfo.lastError) {
+      return `No se pudo completar la sincronizacion automatica desde ${syncInfo.provider}.`;
+    }
+
+    return `Marcador sincronizado automaticamente desde ${syncInfo.provider}.`;
+  }, [syncInfo]);
+
+  const syncWarning = useMemo(() => {
+    if (!syncInfo?.lastError) {
+      return null;
+    }
+
+    const attemptText = syncInfo.lastAttemptAt ? ` Ultimo intento: ${formatMatchDate(syncInfo.lastAttemptAt)}.` : "";
+    if (syncInfo.lastSuccessAt) {
+      return `El ultimo intento de sincronizacion fallo. Se muestran los ultimos datos guardados localmente mientras el proveedor vuelve a responder.${attemptText}`;
+    }
+
+    return `El proveedor externo no respondio y todavia no hay una sincronizacion exitosa reciente.${attemptText}`;
+  }, [syncInfo]);
 
   return (
     <div className="space-y-6">
@@ -84,13 +114,10 @@ export default function LivePredictionsPage() {
       />
 
       <div className="panel rounded-3xl p-5">
-        <p className="text-sm text-muted-foreground">
-          Marcador actualizado automaticamente desde <span className="font-semibold text-foreground">{data?.sync.provider ?? "worldcup26.ir"}</span>.
-          {data?.sync.lastSuccessAt ? ` Ultima sincronizacion: ${formatMatchDate(data.sync.lastSuccessAt)}.` : ""}
-        </p>
-        {data?.sync.lastError ? (
+        <p className="text-sm text-muted-foreground">{syncHeadline}</p>
+        {syncWarning ? (
           <p className="mt-2 text-sm text-amber-700">
-            El proveedor externo no respondio en el ultimo intento. Se muestran los ultimos datos guardados localmente.
+            {syncWarning}
           </p>
         ) : null}
       </div>
