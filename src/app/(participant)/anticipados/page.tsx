@@ -27,6 +27,7 @@ function createEmptyForm(groups: Array<{ group: string }>): AnticipationForm {
     })),
     stageSelections: {
       bestThirdTeamIds: [],
+      roundOf32TeamIds: [],
       roundOf16TeamIds: [],
       quarterFinalTeamIds: [],
       semiFinalTeamIds: [],
@@ -39,6 +40,7 @@ function createEmptyForm(groups: Array<{ group: string }>): AnticipationForm {
 function getPotentialAnticipationPoints(scoring: {
   groupQualifiedPoints: number;
   bestThirdPoints: number;
+  roundOf32Points: number;
   roundOf16Points: number;
   quarterFinalPoints: number;
   semiFinalPoints: number;
@@ -48,6 +50,7 @@ function getPotentialAnticipationPoints(scoring: {
   return (
     16 * scoring.groupQualifiedPoints +
     anticipationStageLimits.bestThirdTeamIds * scoring.bestThirdPoints +
+    anticipationStageLimits.roundOf32TeamIds * scoring.roundOf32Points +
     anticipationStageLimits.roundOf16TeamIds * scoring.roundOf16Points +
     anticipationStageLimits.quarterFinalTeamIds * scoring.quarterFinalPoints +
     anticipationStageLimits.semiFinalTeamIds * scoring.semiFinalPoints +
@@ -117,6 +120,7 @@ export default function AnticipationPage() {
                   groupRankings: data.prediction.groupRankings,
                   stageSelections: {
                     bestThirdTeamIds: data.prediction.stageSelections?.bestThirdTeamIds ?? [],
+                    roundOf32TeamIds: data.prediction.stageSelections?.roundOf32TeamIds ?? [],
                     roundOf16TeamIds: data.prediction.stageSelections?.roundOf16TeamIds ?? [],
                     quarterFinalTeamIds: data.prediction.stageSelections?.quarterFinalTeamIds ?? [],
                     semiFinalTeamIds: data.prediction.stageSelections?.semiFinalTeamIds ?? [],
@@ -137,6 +141,7 @@ export default function AnticipationPage() {
       candidatePools
         ? {
             groupQualified: new Set(candidatePools.groupQualifiedTeamIds),
+            roundOf32: new Set(candidatePools.roundOf32CandidateIds),
             roundOf16: new Set(candidatePools.roundOf16CandidateIds),
             quarterFinal: new Set(candidatePools.quarterFinalCandidateIds),
             semiFinal: new Set(candidatePools.semiFinalCandidateIds),
@@ -161,6 +166,10 @@ export default function AnticipationPage() {
 
     return groups;
   }, [form?.stageSelections.bestThirdTeamIds, teamGroupLookup]);
+  const roundOf32Candidates = useMemo(
+    () => (data?.teams ?? []).filter((team: any) => candidateSets?.roundOf32.has(team._id)),
+    [data?.teams, candidateSets],
+  );
   const roundOf16Candidates = useMemo(
     () => (data?.teams ?? []).filter((team: any) => candidateSets?.roundOf16.has(team._id)),
     [data?.teams, candidateSets],
@@ -509,7 +518,8 @@ export default function AnticipationPage() {
               </p>
             </div>
             {[
-              ["roundOf16TeamIds", "Octavos de final", anticipationStageLimits.roundOf16TeamIds, roundOf16Candidates, "Solo usa equipos que clasificaste desde grupos y mejores terceros"],
+              ["roundOf32TeamIds", "16vos", anticipationStageLimits.roundOf32TeamIds, roundOf32Candidates, "Solo usa equipos que clasificaste desde grupos y mejores terceros"],
+              ["roundOf16TeamIds", "Octavos de final", anticipationStageLimits.roundOf16TeamIds, roundOf16Candidates, "Solo usa equipos que elegiste para 16vos"],
               ["quarterFinalTeamIds", "Cuartos de final", anticipationStageLimits.quarterFinalTeamIds, quarterFinalCandidates, "Solo usa equipos que elegiste para octavos"],
               ["semiFinalTeamIds", "Semifinal", anticipationStageLimits.semiFinalTeamIds, semiFinalCandidates, "Solo usa equipos que elegiste para cuartos"],
               ["finalTeamIds", "Final", anticipationStageLimits.finalTeamIds, finalCandidates, "Solo usa equipos que elegiste para semifinal"],
@@ -627,6 +637,7 @@ export default function AnticipationPage() {
 
                   {[
                     data.breakdown.bestThird,
+                    data.breakdown.roundOf32,
                     data.breakdown.roundOf16,
                     data.breakdown.quarterFinal,
                     data.breakdown.semiFinal,

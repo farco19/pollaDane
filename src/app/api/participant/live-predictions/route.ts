@@ -49,15 +49,13 @@ function serializeTeam(team: PopulatedTeamRef, fallbackName: string, fallbackSho
 export async function GET() {
   try {
     await requireSessionUser();
-    const syncSummary = await syncExternalLiveMatchesIfNeeded();
     await bootstrapDataLayer();
 
     const matches = await Match.find({ status: "live" }).sort({ matchDate: 1 }).populate("homeTeamId awayTeamId").lean();
     const matchIds = matches.map((match) => match._id);
-    const [predictions, users, settings] = await Promise.all([
+    const [predictions, users] = await Promise.all([
       matchIds.length ? Prediction.find({ matchId: { $in: matchIds } }).lean() : Promise.resolve([]),
       User.find({ role: "participant", isActive: true }).select({ _id: 1, name: 1 }).lean(),
-      TournamentSettings.findOne().select({ liveSync: 1 }).lean(),
     ]);
 
     const predictionMap = new Map(predictions.map((prediction) => [`${String(prediction.matchId)}:${String(prediction.userId)}`, prediction]));
@@ -99,16 +97,6 @@ export async function GET() {
 
     return ok({
       matches: liveMatches,
-      sync: {
-        provider: "API-Football",
-        lastAttemptAt: settings?.liveSync?.lastAttemptAt ?? null,
-        lastSuccessAt: settings?.liveSync?.lastSuccessAt ?? syncSummary.lastSuccessAt ?? null,
-        lastError: settings?.liveSync?.lastError ?? syncSummary.error ?? null,
-        attempted: syncSummary.attempted,
-        skipped: syncSummary.skipped,
-        updatedLiveCount: syncSummary.updatedLiveCount,
-        finalizedCount: syncSummary.finalizedCount,
-      },
     });
   } catch (error) {
     return fail(error instanceof Error ? error.message : "No fue posible cargar los partidos en vivo", 401);

@@ -1,5 +1,6 @@
 export const anticipationStageLimits = {
   bestThirdTeamIds: 8,
+  roundOf32TeamIds: 32,
   roundOf16TeamIds: 16,
   quarterFinalTeamIds: 8,
   semiFinalTeamIds: 4,
@@ -14,6 +15,7 @@ export type AnticipationFormShape = {
   }>;
   stageSelections: {
     bestThirdTeamIds: string[];
+    roundOf32TeamIds: string[];
     roundOf16TeamIds: string[];
     quarterFinalTeamIds: string[];
     semiFinalTeamIds: string[];
@@ -66,7 +68,8 @@ export function getQualifiedTeamsFromGroups(groupRankings: AnticipationFormShape
 export function getAnticipationCandidatePools(form: AnticipationFormShape) {
   const groupQualifiedTeamIds = getQualifiedTeamsFromGroups(form.groupRankings);
   const bestThirdTeamIds = uniqueTeamIds(form.stageSelections.bestThirdTeamIds).filter((teamId) => !groupQualifiedTeamIds.includes(teamId));
-  const roundOf16CandidateIds = uniqueTeamIds([...groupQualifiedTeamIds, ...bestThirdTeamIds]);
+  const roundOf32CandidateIds = uniqueTeamIds([...groupQualifiedTeamIds, ...bestThirdTeamIds]);
+  const roundOf16CandidateIds = uniqueTeamIds(form.stageSelections.roundOf32TeamIds);
   const quarterFinalCandidateIds = uniqueTeamIds(form.stageSelections.roundOf16TeamIds);
   const semiFinalCandidateIds = uniqueTeamIds(form.stageSelections.quarterFinalTeamIds);
   const finalCandidateIds = uniqueTeamIds(form.stageSelections.semiFinalTeamIds);
@@ -74,6 +77,7 @@ export function getAnticipationCandidatePools(form: AnticipationFormShape) {
   return {
     groupQualifiedTeamIds,
     bestThirdTeamIds,
+    roundOf32CandidateIds,
     roundOf16CandidateIds,
     quarterFinalCandidateIds,
     semiFinalCandidateIds,
@@ -87,7 +91,11 @@ export function sanitizeAnticipationForm(form: AnticipationFormShape, options?: 
     uniqueTeamIds(form.stageSelections.bestThirdTeamIds).filter((teamId) => !groupQualifiedTeamIds.includes(teamId)),
     options?.teamGroupLookup,
   ).slice(0, anticipationStageLimits.bestThirdTeamIds);
-  const roundOf16CandidateIds = new Set(uniqueTeamIds([...groupQualifiedTeamIds, ...bestThirdTeamIds]));
+  const roundOf32CandidateIds = new Set(uniqueTeamIds([...groupQualifiedTeamIds, ...bestThirdTeamIds]));
+  const roundOf32TeamIds = uniqueTeamIds(form.stageSelections.roundOf32TeamIds)
+    .filter((teamId) => roundOf32CandidateIds.has(teamId))
+    .slice(0, anticipationStageLimits.roundOf32TeamIds);
+  const roundOf16CandidateIds = new Set(roundOf32TeamIds);
   const roundOf16TeamIds = uniqueTeamIds(form.stageSelections.roundOf16TeamIds)
     .filter((teamId) => roundOf16CandidateIds.has(teamId))
     .slice(0, anticipationStageLimits.roundOf16TeamIds);
@@ -110,6 +118,7 @@ export function sanitizeAnticipationForm(form: AnticipationFormShape, options?: 
     groupRankings: form.groupRankings,
     stageSelections: {
       bestThirdTeamIds,
+      roundOf32TeamIds,
       roundOf16TeamIds,
       quarterFinalTeamIds,
       semiFinalTeamIds,

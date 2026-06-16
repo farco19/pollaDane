@@ -40,16 +40,6 @@ interface LivePredictionMatch {
 
 interface LivePredictionsResponse {
   matches: LivePredictionMatch[];
-  sync: {
-    provider: string;
-    lastAttemptAt: string | null;
-    lastSuccessAt: string | null;
-    lastError: string | null;
-    attempted: boolean;
-    skipped: boolean;
-    updatedLiveCount: number;
-    finalizedCount: number;
-  };
 }
 
 function formatPrediction(row: LivePredictionRow) {
@@ -75,35 +65,6 @@ export default function LivePredictionsPage() {
     () => matches.find((match) => match._id === selectedMatchId) ?? matches[0] ?? null,
     [matches, selectedMatchId],
   );
-  const syncInfo = data?.sync;
-  const syncHeadline = useMemo(() => {
-    if (!syncInfo) {
-      return "Preparando sincronizacion automatica del marcador.";
-    }
-
-    if (syncInfo.lastSuccessAt) {
-      return `Ultima sincronizacion exitosa desde ${syncInfo.provider}: ${formatMatchDate(syncInfo.lastSuccessAt)}.`;
-    }
-
-    if (syncInfo.lastError) {
-      return `No se pudo completar la sincronizacion automatica desde ${syncInfo.provider}.`;
-    }
-
-    return `Marcador sincronizado automaticamente desde ${syncInfo.provider}.`;
-  }, [syncInfo]);
-
-  const syncWarning = useMemo(() => {
-    if (!syncInfo?.lastError) {
-      return null;
-    }
-
-    const attemptText = syncInfo.lastAttemptAt ? ` Ultimo intento: ${formatMatchDate(syncInfo.lastAttemptAt)}.` : "";
-    if (syncInfo.lastSuccessAt) {
-      return `El ultimo intento de sincronizacion fallo. Se muestran los ultimos datos guardados localmente mientras el proveedor vuelve a responder.${attemptText}`;
-    }
-
-    return `El proveedor externo no respondio y todavia no hay una sincronizacion exitosa reciente.${attemptText}`;
-  }, [syncInfo]);
 
   return (
     <div className="space-y-6">
@@ -112,15 +73,6 @@ export default function LivePredictionsPage() {
         title="Pronosticos en vivo"
         description="Mira solo los partidos que estan en juego, compara el marcador real con los pronosticos de los participantes y cambia de pestaña cuando haya partidos simultaneos."
       />
-
-      <div className="panel rounded-3xl p-5">
-        <p className="text-sm text-muted-foreground">{syncHeadline}</p>
-        {syncWarning ? (
-          <p className="mt-2 text-sm text-amber-700">
-            {syncWarning}
-          </p>
-        ) : null}
-      </div>
 
       {isLoading ? <div className="state-panel rounded-3xl p-6 text-muted-foreground">Cargando partidos en vivo...</div> : null}
       {error ? <div className="error-panel rounded-3xl p-6">{(error as Error).message}</div> : null}

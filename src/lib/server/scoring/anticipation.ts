@@ -2,7 +2,7 @@
 import { getChampionTeamId, getGroupTopTwo, getOfficialBestThirdTeamIds, getQualifiedTeamIdsByStage } from "@/lib/server/tournament";
 
 function hasStageMatches(matches: any[], stage: string) {
-  return matches.some((match) => match.stage === stage);
+  return matches.some((match) => match.stage === stage && match.status === "finished");
 }
 
 export function buildAnticipationActuals(
@@ -15,6 +15,7 @@ export function buildAnticipationActuals(
     activation: {
       groupQualified: hasStageMatches(matches, "round_of_32"),
       bestThird: hasStageMatches(matches, "round_of_32"),
+      roundOf32: hasStageMatches(matches, "round_of_32"),
       roundOf16: hasStageMatches(matches, "round_of_16"),
       quarterFinal: hasStageMatches(matches, "quarter_final"),
       semiFinal: hasStageMatches(matches, "semi_final"),
@@ -23,6 +24,7 @@ export function buildAnticipationActuals(
     },
     groupTopTwo: getGroupTopTwo(matches),
     bestThirdTeamIds: new Set(getOfficialBestThirdTeamIds(settings)),
+    roundOf32TeamIds: new Set(getQualifiedTeamIdsByStage(matches, "round_of_32")),
     roundOf16TeamIds: new Set(getQualifiedTeamIdsByStage(matches, "round_of_16")),
     quarterFinalTeamIds: new Set(getQualifiedTeamIdsByStage(matches, "quarter_final")),
     semiFinalTeamIds: new Set(getQualifiedTeamIdsByStage(matches, "semi_final")),
@@ -37,6 +39,7 @@ export function calculateAnticipationPoints(
   scoring: {
     groupQualifiedPoints: number;
     bestThirdPoints: number;
+    roundOf32Points: number;
     roundOf16Points: number;
     quarterFinalPoints: number;
     semiFinalPoints: number;
@@ -64,6 +67,14 @@ export function calculateAnticipationPoints(
     for (const teamId of prediction.stageSelections?.bestThirdTeamIds ?? []) {
       if (actuals.bestThirdTeamIds.has(String(teamId))) {
         totalPoints += scoring.bestThirdPoints;
+      }
+    }
+  }
+
+  if (actuals.activation.roundOf32) {
+    for (const teamId of prediction.stageSelections?.roundOf32TeamIds ?? []) {
+      if (actuals.roundOf32TeamIds.has(String(teamId))) {
+        totalPoints += scoring.roundOf32Points;
       }
     }
   }
