@@ -1,10 +1,8 @@
 import { fail, ok } from "@/lib/server/api";
 import { bootstrapDataLayer } from "@/lib/server/data";
-import { syncExternalLiveMatchesIfNeeded } from "@/lib/server/live-sync";
 import { requireSessionUser } from "@/lib/server/session";
 import { Match } from "@/models/Match";
 import { Prediction } from "@/models/Prediction";
-import { TournamentSettings } from "@/models/TournamentSettings";
 import { User } from "@/models/User";
 
 type PopulatedTeamRef = {
@@ -46,12 +44,23 @@ function serializeTeam(team: PopulatedTeamRef, fallbackName: string, fallbackSho
   };
 }
 
+function isLiveOrAlreadyStarted(match: { status: string; matchDate: Date }) {
+  if (match.status === "finished") {
+    return false;
+  }
+
+  return new Date(match.matchDate).getTime() <= Date.now();
+}
+
 export async function GET() {
   try {
     await requireSessionUser();
     await bootstrapDataLayer();
 
-    const matches = await Match.find({ status: "live" }).sort({ matchDate: 1 }).populate("homeTeamId awayTeamId").lean();
+    const matches = (await Match.find({ status: { $ne: "finished" } })
+      .sort({ matchDate: 1 })
+      .populate("homeTeamId awayTeamId")
+      .lean()).filter(isLiveOrAlreadyStarted);
     const matchIds = matches.map((match) => match._id);
     const [predictions, users] = await Promise.all([
       matchIds.length ? Prediction.find({ matchId: { $in: matchIds } }).lean() : Promise.resolve([]),
