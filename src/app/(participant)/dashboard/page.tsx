@@ -76,7 +76,10 @@ export default function DashboardPage() {
     },
   ];
   const podium = data.podium ?? [];
-  const currentPodiumEntry = podium.find((entry: any) => entry.rank === data.summary.rank) ?? null;
+  const currentPodiumEntry =
+    typeof data.summary.podiumPosition === "number" && data.summary.podiumPosition > 0
+      ? podium[data.summary.podiumPosition - 1] ?? null
+      : null;
 
   return (
     <div className="space-y-6">
@@ -194,18 +197,25 @@ export default function DashboardPage() {
           </div>
           <div className="mt-4 grid gap-4 md:grid-cols-3">
             {podium.map((entry: any) => {
+              const podiumPosition = entry.position;
               const tone =
-                entry.rank === 1
+                podiumPosition === 1
                   ? "border-amber-400/30 bg-amber-400/10 text-amber-700"
-                  : entry.rank === 2
+                  : podiumPosition === 2
                     ? "border-slate-300/40 bg-slate-300/15 text-slate-700"
                     : "border-orange-300/35 bg-orange-300/10 text-orange-700";
 
               return (
-                <div key={`dashboard-podium-${entry.userId}`} className={`rounded-3xl border p-4 ${tone}`}>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em]">#{entry.rank}</p>
-                  <h3 className="mt-3 text-lg font-semibold text-foreground">{entry.name}</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">{entry.totalPoints} pts</p>
+                <div key={`dashboard-podium-${entry.position}`} className={`rounded-3xl border p-4 ${tone}`}>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em]">#{podiumPosition}</p>
+                  <div className="mt-3 space-y-2">
+                    {entry.entries.map((podiumUser: any) => (
+                      <div key={`dashboard-podium-user-${entry.position}-${podiumUser.userId}`}>
+                        <h3 className="text-lg font-semibold text-foreground">{podiumUser.name}</h3>
+                        <p className="mt-1 text-sm text-muted-foreground">{podiumUser.totalPoints} pts</p>
+                      </div>
+                    ))}
+                  </div>
                   <p className="mt-4 text-xs uppercase tracking-[0.16em]">{entry.percentage}% del premio</p>
                   <p className="mt-2 text-xl font-semibold">{formatCurrency(entry.prizeAmount)}</p>
                 </div>
@@ -222,7 +232,7 @@ export default function DashboardPage() {
           {currentPodiumEntry ? (
             <div className="panel-muted mt-4 rounded-3xl p-5">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Estas en zona de premio</p>
-              <p className="mt-3 text-2xl font-semibold text-foreground">#{currentPodiumEntry.rank}</p>
+              <p className="mt-3 text-2xl font-semibold text-foreground">#{data.summary.podiumPosition}</p>
               <p className="mt-2 text-sm text-muted-foreground">
                 Hoy te llevarias el {currentPodiumEntry.percentage}% del premio acumulado.
               </p>

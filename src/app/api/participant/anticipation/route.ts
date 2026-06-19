@@ -38,13 +38,12 @@ function normalizeId(value: string | { toString(): string } | null | undefined) 
 
 function normalizePrediction(
   prediction: LeanPrediction | null,
-  teamGroupLookup?: Map<string, string | null | undefined>,
 ) {
   if (!prediction) {
     return null;
   }
 
-  const normalized = sanitizeAnticipationForm({
+  return {
     groupRankings: (prediction.groupRankings ?? []).map((item) => ({
       group: item.group,
       firstTeamId: normalizeId(item.firstTeamId),
@@ -59,10 +58,6 @@ function normalizePrediction(
       finalTeamIds: (prediction.stageSelections?.finalTeamIds ?? []).map((item) => item.toString()),
       championTeamId: normalizeId(prediction.stageSelections?.championTeamId),
     },
-  }, { teamGroupLookup });
-
-  return {
-    ...normalized,
     savedAt: prediction.updatedAt ?? prediction.createdAt ?? prediction.lockedAt ?? null,
   };
 }
@@ -376,13 +371,12 @@ export async function GET() {
     )
       .sort(([a], [b]) => a.localeCompare(b, "es"))
       .map(([group, groupTeams]) => ({ group, teams: groupTeams }));
-    const teamGroupLookup = new Map<string, string | null>(teams.map((team) => [String(team._id), team.group ?? null]));
     const standingsOverview = buildStandingsOverview(teams, matches, settings);
     const scoring = {
       ...defaultAnticipationScoring,
       ...(settings?.anticipationScoring ?? {}),
     };
-    const normalizedPrediction = normalizePrediction(prediction, teamGroupLookup);
+    const normalizedPrediction = normalizePrediction(prediction);
 
     return ok({
       firstMatchDate,

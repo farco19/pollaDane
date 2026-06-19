@@ -1,6 +1,7 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 export { formatMatchDate } from "@/lib/match-datetime";
+export { formatMatchDateTimeLocalInput } from "@/lib/match-datetime";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));

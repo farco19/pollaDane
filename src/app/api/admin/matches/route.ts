@@ -1,6 +1,7 @@
 import { bootstrapDataLayer, getMatchesForUser } from "@/lib/server/data";
 import { fail, ok } from "@/lib/server/api";
 import { buildFlagUrl } from "@/lib/flagcdn";
+import { parseColombiaDateTimeLocal } from "@/lib/match-datetime";
 import { requireAdminUser } from "@/lib/server/session";
 import { matchCreateSchema } from "@/lib/validators/match";
 import { Match } from "@/models/Match";
@@ -11,6 +12,23 @@ import { z } from "zod";
 const matchAccessSchema = z.object({
   id: z.string().regex(/^[a-f\d]{24}$/i, "Id invalido"),
   predictionAccessMode: z.enum(["scheduled", "manual_open", "manual_locked"]),
+});
+
+const matchRescheduleSchema = z.object({
+  id: z.string().regex(/^[a-f\d]{24}$/i, "Id invalido"),
+  matchDate: z.string().trim().transform((value, ctx) => {
+    const parsed = parseColombiaDateTimeLocal(value);
+
+    if (!parsed) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Fecha y hora invalidas",
+      });
+      return z.NEVER;
+    }
+
+    return parsed;
+  }),
 });
 
 export async function GET() {
@@ -124,6 +142,41 @@ export async function PATCH(request: Request) {
     await requireAdminUser();
     await bootstrapDataLayer();
     const json = await request.json().catch(() => ({}));
+    if ("matchDate" in json) {
+      const parsed = matchRescheduleSchema.safeParse(json);
+
+      if (!parsed.success) {
+        return fail("Solicitud invalida", 400, "VALIDATION_ERROR", parsed.error.flatten());
+      }
+
+      const match = await Match.findById(parsed.data.id).lean();
+
+      if (!match) {
+        return fail("Partido no encontrado", 404);
+      }
+
+      if (match.status === "finished") {
+        return fail("No puedes cambiar la fecha de un partido finalizado", 409);
+      }
+
+      await Match.updateOne(
+        { _id: match._id },
+        {
+          $set: {
+            matchDate: parsed.data.matchDate,
+          },
+        },
+      );
+
+      return ok(
+        {
+          _id: String(match._id),
+          matchDate: parsed.data.matchDate,
+        },
+        "Fecha del partido actualizada",
+      );
+    }
+
     const parsed = matchAccessSchema.safeParse(json);
 
     if (!parsed.success) {

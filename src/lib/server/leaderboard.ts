@@ -98,6 +98,8 @@ export async function buildLeaderboard() {
     entry.anticipationPoints += anticipationPoints;
   }
 
+  let currentRank = 0;
+  let lastPoints: number | null = null;
   const leaderboard = Array.from(map.values())
     .sort((a, b) => {
       if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
@@ -105,10 +107,17 @@ export async function buildLeaderboard() {
       if (b.winnerHits !== a.winnerHits) return b.winnerHits - a.winnerHits;
       return a.createdAt.getTime() - b.createdAt.getTime();
     })
-    .map((entry, index) => ({
-      ...entry,
-      rank: index + 1,
-    }));
+    .map((entry) => {
+      if (lastPoints !== entry.totalPoints) {
+        currentRank += 1;
+      }
+      lastPoints = entry.totalPoints;
+
+      return {
+        ...entry,
+        rank: currentRank,
+      };
+    });
 
   const prizePool = calculatePrizePool(settings?.entryFee ?? 0, users.length);
   const prizeDistribution = {
@@ -116,29 +125,37 @@ export async function buildLeaderboard() {
     ...(settings?.prizeDistribution ?? {}),
   };
   const prizeAmounts = calculatePrizeDistributionAmounts(prizePool, prizeDistribution);
-  const podium = [
-    leaderboard[0]
-      ? {
-          ...leaderboard[0],
-          prizeAmount: prizeAmounts.firstPlaceAmount,
-          percentage: prizeDistribution.firstPlacePercentage,
-        }
-      : null,
-    leaderboard[1]
-      ? {
-          ...leaderboard[1],
-          prizeAmount: prizeAmounts.secondPlaceAmount,
-          percentage: prizeDistribution.secondPlacePercentage,
-        }
-      : null,
-    leaderboard[2]
-      ? {
-          ...leaderboard[2],
-          prizeAmount: prizeAmounts.thirdPlaceAmount,
-          percentage: prizeDistribution.thirdPlacePercentage,
-        }
-      : null,
-  ].filter(Boolean);
+  const podium = [1, 2, 3]
+    .map((position) => {
+      const entries = leaderboard.filter((entry) => entry.rank === position).map((entry) => ({
+        userId: entry.userId,
+        name: entry.name,
+        totalPoints: entry.totalPoints,
+        rank: entry.rank,
+      }));
+
+      if (!entries.length) {
+        return null;
+      }
+
+      return {
+        position,
+        entries,
+        percentage:
+          position === 1
+            ? prizeDistribution.firstPlacePercentage
+            : position === 2
+              ? prizeDistribution.secondPlacePercentage
+              : prizeDistribution.thirdPlacePercentage,
+        prizeAmount:
+          position === 1
+            ? prizeAmounts.firstPlaceAmount
+            : position === 2
+              ? prizeAmounts.secondPlaceAmount
+              : prizeAmounts.thirdPlaceAmount,
+      };
+    })
+    .filter(Boolean);
 
   return {
     leaderboard,

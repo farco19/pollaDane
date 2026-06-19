@@ -12,11 +12,16 @@ interface LeaderboardEntry {
   drawHits: number;
 }
 
-interface PodiumEntry {
+interface PodiumUserEntry {
   rank: number;
   userId: string;
   name: string;
   totalPoints: number;
+}
+
+interface PodiumEntry {
+  position: number;
+  entries: PodiumUserEntry[];
   prizeAmount: number;
   percentage: number;
 }
@@ -55,9 +60,9 @@ function getPodiumStyle(rank: number) {
 }
 
 export function LeaderboardTable({ entries, prizePool, podium }: LeaderboardTableProps) {
-  const firstPlace = podium?.find((entry) => entry.rank === 1);
-  const secondPlace = podium?.find((entry) => entry.rank === 2);
-  const thirdPlace = podium?.find((entry) => entry.rank === 3);
+  const firstPlace = podium?.find((entry) => entry.position === 1);
+  const secondPlace = podium?.find((entry) => entry.position === 2);
+  const thirdPlace = podium?.find((entry) => entry.position === 3);
 
   return (
     <div className="space-y-4">
@@ -82,8 +87,14 @@ export function LeaderboardTable({ entries, prizePool, podium }: LeaderboardTabl
                 <div className={`mt-3 inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${getPodiumStyle(2).badge}`}>
                   #2
                 </div>
-                <h4 className="mt-4 text-xl font-semibold text-foreground">{secondPlace.name}</h4>
-                <p className="mt-2 text-sm text-muted-foreground">{secondPlace.totalPoints} pts</p>
+                <div className="mt-4 space-y-2">
+                  {secondPlace.entries.map((entry) => (
+                    <div key={`podium-second-${entry.userId}`}>
+                      <h4 className="text-xl font-semibold text-foreground">{entry.name}</h4>
+                      <p className="mt-1 text-sm text-muted-foreground">{entry.totalPoints} pts</p>
+                    </div>
+                  ))}
+                </div>
                 <div className="mt-4 rounded-2xl border border-border/70 bg-card/80 px-4 py-4">
                   <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">{secondPlace.percentage}% del premio</p>
                   <p className={`mt-2 text-xl font-semibold ${getPodiumStyle(2).amount}`}>{formatCurrency(secondPlace.prizeAmount)}</p>
@@ -97,8 +108,14 @@ export function LeaderboardTable({ entries, prizePool, podium }: LeaderboardTabl
                 <div className={`mt-3 inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${getPodiumStyle(1).badge}`}>
                   #1
                 </div>
-                <h4 className="mt-4 text-3xl font-semibold tracking-[-0.03em] text-foreground">{firstPlace.name}</h4>
-                <p className="mt-2 text-sm text-muted-foreground">{firstPlace.totalPoints} pts</p>
+                <div className="mt-4 space-y-2">
+                  {firstPlace.entries.map((entry) => (
+                    <div key={`podium-first-${entry.userId}`}>
+                      <h4 className="text-3xl font-semibold tracking-[-0.03em] text-foreground">{entry.name}</h4>
+                      <p className="mt-1 text-sm text-muted-foreground">{entry.totalPoints} pts</p>
+                    </div>
+                  ))}
+                </div>
                 <div className="mt-4 rounded-2xl border border-amber-400/25 bg-card/85 px-4 py-5">
                   <p className={`text-xs uppercase tracking-[0.16em] ${getPodiumStyle(1).label}`}>{firstPlace.percentage}% del premio</p>
                   <p className={`mt-2 text-3xl font-semibold ${getPodiumStyle(1).amount}`}>{formatCurrency(firstPlace.prizeAmount)}</p>
@@ -112,8 +129,14 @@ export function LeaderboardTable({ entries, prizePool, podium }: LeaderboardTabl
                 <div className={`mt-3 inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${getPodiumStyle(3).badge}`}>
                   #3
                 </div>
-                <h4 className="mt-4 text-xl font-semibold text-foreground">{thirdPlace.name}</h4>
-                <p className="mt-2 text-sm text-muted-foreground">{thirdPlace.totalPoints} pts</p>
+                <div className="mt-4 space-y-2">
+                  {thirdPlace.entries.map((entry) => (
+                    <div key={`podium-third-${entry.userId}`}>
+                      <h4 className="text-xl font-semibold text-foreground">{entry.name}</h4>
+                      <p className="mt-1 text-sm text-muted-foreground">{entry.totalPoints} pts</p>
+                    </div>
+                  ))}
+                </div>
                 <div className="mt-4 rounded-2xl border border-border/70 bg-card/80 px-4 py-4">
                   <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">{thirdPlace.percentage}% del premio</p>
                   <p className={`mt-2 text-xl font-semibold ${getPodiumStyle(3).amount}`}>{formatCurrency(thirdPlace.prizeAmount)}</p>

@@ -98,6 +98,41 @@ function TeamChip({
   );
 }
 
+function SelectedTeamsPreview({
+  title,
+  teamIds,
+  teamLookup,
+  emptyLabel,
+}: {
+  title: string;
+  teamIds: string[];
+  teamLookup: Map<string, any>;
+  emptyLabel: string;
+}) {
+  const teams = teamIds.map((teamId) => teamLookup.get(teamId)).filter(Boolean);
+
+  return (
+    <div className="mt-4 rounded-2xl border border-dashed border-border bg-card/70 p-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">{title}</p>
+      {teams.length ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {teams.map((team: any) => (
+            <div key={`${title}-${team._id}`} className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-sm text-foreground">
+              {team.flagUrl ? (
+                <Image src={team.flagUrl} alt={team.name} width={20} height={15} className="h-[15px] w-5 object-contain" />
+              ) : null}
+              <span className="font-medium">{team.name}</span>
+              <span className="text-xs uppercase tracking-[0.12em] text-muted-foreground">{team.shortName}</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-3 text-sm text-muted-foreground">{emptyLabel}</p>
+      )}
+    </div>
+  );
+}
+
 export default function AnticipationPage() {
   const queryClient = useQueryClient();
   const [detailOpen, setDetailOpen] = useState(false);
@@ -111,28 +146,26 @@ export default function AnticipationPage() {
     () => new Map<string, string | null>((data?.teams ?? []).map((team: any) => [String(team._id), team.group ?? null])),
     [data?.teams],
   );
+  const teamLookup = useMemo(() => new Map<string, any>((data?.teams ?? []).map((team: any) => [String(team._id), team])), [data?.teams]);
   const baseForm = useMemo(
     () =>
       data
-        ? sanitizeAnticipationForm(
-            data.prediction
-              ? {
-                  groupRankings: data.prediction.groupRankings,
-                  stageSelections: {
-                    bestThirdTeamIds: data.prediction.stageSelections?.bestThirdTeamIds ?? [],
-                    roundOf32TeamIds: data.prediction.stageSelections?.roundOf32TeamIds ?? [],
-                    roundOf16TeamIds: data.prediction.stageSelections?.roundOf16TeamIds ?? [],
-                    quarterFinalTeamIds: data.prediction.stageSelections?.quarterFinalTeamIds ?? [],
-                    semiFinalTeamIds: data.prediction.stageSelections?.semiFinalTeamIds ?? [],
-                    finalTeamIds: data.prediction.stageSelections?.finalTeamIds ?? [],
-                    championTeamId: data.prediction.stageSelections?.championTeamId ?? null,
-                  },
-                }
-              : createEmptyForm(data.groups ?? []),
-            { teamGroupLookup },
-          )
+        ? data.prediction
+          ? {
+              groupRankings: data.prediction.groupRankings,
+              stageSelections: {
+                bestThirdTeamIds: data.prediction.stageSelections?.bestThirdTeamIds ?? [],
+                roundOf32TeamIds: data.prediction.stageSelections?.roundOf32TeamIds ?? [],
+                roundOf16TeamIds: data.prediction.stageSelections?.roundOf16TeamIds ?? [],
+                quarterFinalTeamIds: data.prediction.stageSelections?.quarterFinalTeamIds ?? [],
+                semiFinalTeamIds: data.prediction.stageSelections?.semiFinalTeamIds ?? [],
+                finalTeamIds: data.prediction.stageSelections?.finalTeamIds ?? [],
+                championTeamId: data.prediction.stageSelections?.championTeamId ?? null,
+              },
+            }
+          : createEmptyForm(data.groups ?? [])
         : null,
-    [data, teamGroupLookup],
+    [data],
   );
   const form = draftForm ?? baseForm;
   const candidatePools = useMemo(() => (form ? getAnticipationCandidatePools(form) : null), [form]);
@@ -525,27 +558,53 @@ export default function AnticipationPage() {
               ["finalTeamIds", "Final", anticipationStageLimits.finalTeamIds, finalCandidates, "Solo usa equipos que elegiste para semifinal"],
             ].map(([stageKey, label, limit, teams, helperText]) => (
               <div key={stageKey} className="panel rounded-3xl p-5">
+                {(() => {
+                  const isAutomaticRoundOf32 = stageKey === "roundOf32TeamIds";
+                  const selectedIds = isAutomaticRoundOf32
+                    ? (teams as any[]).map((team: any) => team._id)
+                    : form.stageSelections[stageKey as keyof typeof anticipationStageLimits];
+
+                  return (
+                    <>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h3 className="text-lg font-semibold text-foreground">{label}</h3>
                     <p className="text-sm text-muted-foreground">
-                      Seleccionados: {form.stageSelections[stageKey as keyof typeof anticipationStageLimits].length} / {limit}
+                      Seleccionados: {selectedIds.length} / {limit}
                     </p>
-                    <p className="mt-1 text-xs uppercase tracking-[0.14em] text-primary">{helperText}</p>
+                    <p className="mt-1 text-xs uppercase tracking-[0.14em] text-primary">
+                      {isAutomaticRoundOf32 ? "Estos equipos quedan definidos automaticamente por tus grupos y mejores terceros" : helperText}
+                    </p>
                   </div>
                 </div>
+                {!isAutomaticRoundOf32 ? (
+                  <SelectedTeamsPreview
+                    title="Tu seleccion actual"
+                    teamIds={selectedIds}
+                    teamLookup={teamLookup}
+                    emptyLabel={`Aun no has seleccionado equipos para ${label.toLowerCase()}.`}
+                  />
+                ) : null}
                 <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                   {(teams as any[]).map((team: any) => (
                     <TeamChip
                       key={`${stageKey}-${team._id}`}
                       team={team}
-                      active={form.stageSelections[stageKey as keyof typeof anticipationStageLimits].includes(team._id)}
-                      onClick={() => toggleStageSelection(stageKey as keyof typeof anticipationStageLimits, team._id)}
-                      disabled={isLocked}
+                      active={isAutomaticRoundOf32 || selectedIds.includes(team._id)}
+                      onClick={() => {
+                        if (isAutomaticRoundOf32) {
+                          return;
+                        }
+                        toggleStageSelection(stageKey as keyof typeof anticipationStageLimits, team._id);
+                      }}
+                      disabled={isLocked || isAutomaticRoundOf32}
                     />
                   ))}
                 </div>
                 {(teams as any[]).length === 0 ? <p className="mt-4 text-sm text-muted-foreground">Aun no hay equipos habilitados para esta fase.</p> : null}
+                    </>
+                  );
+                })()}
               </div>
             ))}
           </section>
@@ -554,6 +613,12 @@ export default function AnticipationPage() {
             <div className="panel rounded-3xl p-6">
               <h2 className="text-xl font-semibold text-foreground">Campeon</h2>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">Selecciona el equipo que se coronara campeon del torneo. Solo puedes elegir entre tus finalistas.</p>
+              <SelectedTeamsPreview
+                title="Campeon seleccionado"
+                teamIds={form.stageSelections.championTeamId ? [form.stageSelections.championTeamId] : []}
+                teamLookup={teamLookup}
+                emptyLabel="Aun no has elegido campeon."
+              />
               <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                 {finalCandidates.map((team: any) => (
                   <TeamChip

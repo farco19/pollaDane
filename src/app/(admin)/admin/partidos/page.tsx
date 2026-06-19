@@ -6,7 +6,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
 import { cn } from "@/lib/utils";
-import { apiFetch, formatMatchDate, formatMatchStage } from "@/lib/utils";
+import { apiFetch, formatMatchDate, formatMatchDateTimeLocalInput, formatMatchStage } from "@/lib/utils";
 
 interface TeamOption {
   _id: string;
@@ -154,6 +154,7 @@ export default function AdminMatchesPage() {
   const queryClient = useQueryClient();
   const [pageLoadedAt] = useState(() => Date.now());
   const [form, setForm] = useState({ homeTeamId: "", awayTeamId: "", stage: "group", group: "", stadium: "", matchDate: "" });
+  const [matchDateDrafts, setMatchDateDrafts] = useState<Record<string, string>>({});
   const { data, isLoading, error } = useQuery({
     queryKey: ["admin-matches"],
     queryFn: () => apiFetch<AdminMatchesResponse>("/api/admin/matches"),
@@ -200,6 +201,27 @@ export default function AdminMatchesPage() {
     },
     onError: (err: Error) => toast.error(err.message),
   });
+  const rescheduleMutation = useMutation({
+    mutationFn: ({ matchId, matchDate }: { matchId: string; matchDate: string }) =>
+      apiFetch("/api/admin/matches", {
+        method: "PATCH",
+        body: JSON.stringify({ id: matchId, matchDate }),
+      }),
+    onSuccess: (_, variables) => {
+      toast.success("Fecha del partido actualizada");
+      setMatchDateDrafts((current) => {
+        const next = { ...current };
+        delete next[variables.matchId];
+        return next;
+      });
+      queryClient.invalidateQueries({ queryKey: ["admin-matches"] });
+      queryClient.invalidateQueries({ queryKey: ["participant-matches"] });
+      queryClient.invalidateQueries({ queryKey: ["participant-dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["participant-live-predictions"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
   const accessMutation = useMutation({
     mutationFn: ({ matchId, predictionAccessMode }: { matchId: string; predictionAccessMode: "scheduled" | "manual_open" | "manual_locked" }) =>
       apiFetch("/api/admin/matches", {
@@ -228,6 +250,10 @@ export default function AdminMatchesPage() {
     form.stadium.trim().length >= 2 &&
     form.matchDate !== "" &&
     (!isGroupStage || (!!derivedGroup && !hasGroupMismatch && !missingGroupAssignment));
+
+  function getMatchDateDraft(match: MatchListItem) {
+    return matchDateDrafts[match._id] ?? formatMatchDateTimeLocalInput(match.matchDate);
+  }
 
   return (
     <div className="space-y-6">
@@ -357,32 +383,59 @@ export default function AdminMatchesPage() {
                   </span>
                 </div>
                 {match.status !== "finished" ? (
-                  <div className="flex flex-wrap gap-2 sm:justify-end">
-                    <button
-                      type="button"
-                      onClick={() => accessMutation.mutate({ matchId: match._id, predictionAccessMode: "manual_open" })}
-                      disabled={accessMutation.isPending}
-                      className="rounded-xl border border-emerald-500/20 px-3 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-500/5 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      Desbloquear edicion
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => accessMutation.mutate({ matchId: match._id, predictionAccessMode: "manual_locked" })}
-                      disabled={accessMutation.isPending}
-                      className="rounded-xl border border-amber-500/20 px-3 py-2 text-sm font-medium text-amber-700 transition hover:bg-amber-500/5 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      Bloquear edicion
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => accessMutation.mutate({ matchId: match._id, predictionAccessMode: "scheduled" })}
-                      disabled={accessMutation.isPending}
-                      className="rounded-xl border border-border px-3 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      Usar horario automatico
-                    </button>
-                  </div>
+                  <>
+                    <div className="w-full rounded-2xl border border-border bg-card p-3 sm:max-w-md">
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-primary">Editar fecha y hora</p>
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <input
+                          type="datetime-local"
+                          value={getMatchDateDraft(match)}
+                          onChange={(e) =>
+                            setMatchDateDrafts((current) => ({
+                              ...current,
+                              [match._id]: e.target.value,
+                            }))
+                          }
+                          className="field-input min-w-0 flex-1"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => rescheduleMutation.mutate({ matchId: match._id, matchDate: getMatchDateDraft(match) })}
+                          disabled={rescheduleMutation.isPending || getMatchDateDraft(match).trim() === ""}
+                          className="rounded-xl border border-primary/20 px-3 py-2 text-sm font-medium text-primary transition hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {rescheduleMutation.isPending ? "Guardando..." : "Guardar fecha"}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 sm:justify-end">
+                      <button
+                        type="button"
+                        onClick={() => accessMutation.mutate({ matchId: match._id, predictionAccessMode: "manual_open" })}
+                        disabled={accessMutation.isPending}
+                        className="rounded-xl border border-emerald-500/20 px-3 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-500/5 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Desbloquear edicion
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => accessMutation.mutate({ matchId: match._id, predictionAccessMode: "manual_locked" })}
+                        disabled={accessMutation.isPending}
+                        className="rounded-xl border border-amber-500/20 px-3 py-2 text-sm font-medium text-amber-700 transition hover:bg-amber-500/5 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Bloquear edicion
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => accessMutation.mutate({ matchId: match._id, predictionAccessMode: "scheduled" })}
+                        disabled={accessMutation.isPending}
+                        className="rounded-xl border border-border px-3 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Usar horario automatico
+                      </button>
+                    </div>
+                  </>
                 ) : null}
                 {match.status === "scheduled" && new Date(match.matchDate).getTime() > pageLoadedAt ? (
                   <button

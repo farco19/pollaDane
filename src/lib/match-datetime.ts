@@ -44,6 +44,21 @@ export function formatLongMatchDate(value: string | Date) {
   }).format(toDate(value));
 }
 
+export function formatMatchDateTimeLocalInput(value: string | Date) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: COLOMBIA_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(toDate(value));
+
+  const map = new Map(parts.map((part) => [part.type, part.value]));
+  return `${map.get("year")}-${map.get("month")}-${map.get("day")}T${map.get("hour")}:${map.get("minute")}`;
+}
+
 export function getColombiaDateKey(value: string | Date) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: COLOMBIA_TIME_ZONE,

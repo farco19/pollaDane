@@ -128,15 +128,18 @@ export async function getParticipantDashboard(userId: string) {
   ]);
 
   const mine = leaderboardData.leaderboard.find((entry) => entry.userId === userId);
+  const podiumPosition = leaderboardData.podium.findIndex((slot) => slot?.entries?.some((entry) => entry.userId === userId));
   const upcomingMatches = matches.filter((match) => new Date(match.matchDate).getTime() > Date.now()).slice(0, 3);
   const recentPredictions = matches.filter((match) => match.prediction).slice(-5).reverse();
 
   return {
     summary: {
+      userId,
       totalPoints: mine?.totalPoints ?? 0,
       matchPoints: mine?.matchPoints ?? 0,
       anticipationPoints: mine?.anticipationPoints ?? 0,
       rank: mine?.rank ?? leaderboardData.participants,
+      podiumPosition: podiumPosition >= 0 ? podiumPosition + 1 : null,
       exactHits: mine?.exactHits ?? 0,
       predictionsScored: mine?.predictionsScored ?? 0,
       prizePool: settings.prizePool,
