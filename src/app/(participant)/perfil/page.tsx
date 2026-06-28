@@ -3,7 +3,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/ui/page-header";
-import { anticipationStageLimits } from "@/lib/anticipation";
+import { getExactGroupQualifiedPoints, getPotentialAnticipationPoints } from "@/lib/anticipation";
 import { apiFetch, formatCurrency } from "@/lib/utils";
 
 export default function ProfilePage() {
@@ -78,11 +78,11 @@ export default function ProfilePage() {
               <div>
                 <h2 className="text-xl font-semibold text-foreground">Reglas y puntajes</h2>
                 <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                  Este es el valor actual de cada acierto definido por el administrador.
+                  Este es el valor actual de cada acierto definido por el administrador, incluyendo el bono por orden exacto en grupos.
                 </p>
               </div>
               <div className="rounded-full border border-primary/15 bg-primary/8 px-4 py-2 text-sm font-medium text-primary">
-                Maximo teorico anticipados: {(16 * data.settings.anticipationScoring.groupQualifiedPoints) + (anticipationStageLimits.bestThirdTeamIds * data.settings.anticipationScoring.bestThirdPoints) + (anticipationStageLimits.roundOf16TeamIds * data.settings.anticipationScoring.roundOf16Points) + (anticipationStageLimits.quarterFinalTeamIds * data.settings.anticipationScoring.quarterFinalPoints) + (anticipationStageLimits.semiFinalTeamIds * data.settings.anticipationScoring.semiFinalPoints) + (anticipationStageLimits.finalTeamIds * data.settings.anticipationScoring.finalPoints) + data.settings.anticipationScoring.championPoints} pts
+                Maximo teorico anticipados: {getPotentialAnticipationPoints(data.settings.anticipationScoring)} pts
               </div>
             </div>
 
@@ -113,12 +113,24 @@ export default function ProfilePage() {
                 <h3 className="text-lg font-semibold text-foreground">Anticipados</h3>
                 <div className="mt-4 space-y-3 text-sm">
                   <div className="flex items-center justify-between gap-4 rounded-2xl bg-card px-4 py-3">
-                    <span className="text-muted-foreground">Top 2 por grupo</span>
-                    <span className="font-semibold text-foreground">{data.settings.anticipationScoring.groupQualifiedPoints} pts por equipo</span>
+                    <span className="text-muted-foreground">Top 2 por grupo (clasificados directos)</span>
+                    <span className="font-semibold text-foreground">
+                      {data.settings.anticipationScoring.groupQualifiedPoints} pts por equipo, {getExactGroupQualifiedPoints(data.settings.anticipationScoring.groupQualifiedPoints)} pts por equipo con orden exacto
+                    </span>
+                  </div>
+                  <div className="rounded-2xl bg-card px-4 py-3 text-xs leading-5 text-muted-foreground">
+                    Si aciertas ambos clasificados del grupo en el orden correcto, cada equipo vale {getExactGroupQualifiedPoints(data.settings.anticipationScoring.groupQualifiedPoints)} puntos. Si los aciertas al reves o solo pegas uno, cada acierto vale {data.settings.anticipationScoring.groupQualifiedPoints} puntos.
+                  </div>
+                  <div className="rounded-2xl bg-card px-4 py-3 text-xs leading-5 text-muted-foreground">
+                    Los 16vos se forman automaticamente con tus top 2 por grupo y tus mejores terceros.
                   </div>
                   <div className="flex items-center justify-between gap-4 rounded-2xl bg-card px-4 py-3">
                     <span className="text-muted-foreground">Mejores terceros</span>
                     <span className="font-semibold text-foreground">{data.settings.anticipationScoring.bestThirdPoints} pts por equipo</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 rounded-2xl bg-card px-4 py-3">
+                    <span className="text-muted-foreground">Clasificados a 16vos</span>
+                    <span className="font-semibold text-foreground">{data.settings.anticipationScoring.roundOf32Points} pts por equipo</span>
                   </div>
                   <div className="flex items-center justify-between gap-4 rounded-2xl bg-card px-4 py-3">
                     <span className="text-muted-foreground">Pasa a octavos</span>

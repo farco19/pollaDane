@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { calculateGroupQualifiedSelectionPoints } from "@/lib/anticipation";
 import { getChampionTeamId, getGroupTopTwo, getOfficialBestThirdTeamIds, getQualifiedTeamIdsByStage } from "@/lib/server/tournament";
 
-function hasStageMatches(matches: any[], stage: string) {
-  return matches.some((match) => match.stage === stage && match.status === "finished");
+function hasStageConfigured(matches: any[], stage: string) {
+  return matches.some((match) => match.stage === stage);
 }
 
 export function buildAnticipationActuals(
@@ -13,13 +14,13 @@ export function buildAnticipationActuals(
 
   return {
     activation: {
-      groupQualified: hasStageMatches(matches, "round_of_32"),
-      bestThird: hasStageMatches(matches, "round_of_32"),
-      roundOf32: hasStageMatches(matches, "round_of_32"),
-      roundOf16: hasStageMatches(matches, "round_of_16"),
-      quarterFinal: hasStageMatches(matches, "quarter_final"),
-      semiFinal: hasStageMatches(matches, "semi_final"),
-      final: hasStageMatches(matches, "final"),
+      groupQualified: hasStageConfigured(matches, "round_of_32"),
+      bestThird: hasStageConfigured(matches, "round_of_32"),
+      roundOf32: hasStageConfigured(matches, "round_of_32"),
+      roundOf16: hasStageConfigured(matches, "round_of_16"),
+      quarterFinal: hasStageConfigured(matches, "quarter_final"),
+      semiFinal: hasStageConfigured(matches, "semi_final"),
+      final: hasStageConfigured(matches, "final"),
       champion: Boolean(championTeamId),
     },
     groupTopTwo: getGroupTopTwo(matches),
@@ -52,14 +53,12 @@ export function calculateAnticipationPoints(
   if (actuals.activation.groupQualified) {
     for (const groupPrediction of prediction.groupRankings ?? []) {
       const actualTopTwo = actuals.groupTopTwo.get(groupPrediction.group) ?? [];
-
-      if (groupPrediction.firstTeamId && actualTopTwo.includes(String(groupPrediction.firstTeamId))) {
-        totalPoints += scoring.groupQualifiedPoints;
-      }
-
-      if (groupPrediction.secondTeamId && actualTopTwo.includes(String(groupPrediction.secondTeamId))) {
-        totalPoints += scoring.groupQualifiedPoints;
-      }
+      totalPoints += calculateGroupQualifiedSelectionPoints({
+        firstTeamId: groupPrediction.firstTeamId ? String(groupPrediction.firstTeamId) : null,
+        secondTeamId: groupPrediction.secondTeamId ? String(groupPrediction.secondTeamId) : null,
+        officialTopTwo: actualTopTwo,
+        pointsPerTeam: scoring.groupQualifiedPoints,
+      }).totalPoints;
     }
   }
 

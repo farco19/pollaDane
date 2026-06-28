@@ -7,6 +7,17 @@ export const anticipationStageLimits = {
   finalTeamIds: 2,
 } as const;
 
+export type AnticipationScoringShape = {
+  groupQualifiedPoints: number;
+  bestThirdPoints: number;
+  roundOf32Points: number;
+  roundOf16Points: number;
+  quarterFinalPoints: number;
+  semiFinalPoints: number;
+  finalPoints: number;
+  championPoints: number;
+};
+
 export type AnticipationFormShape = {
   groupRankings: Array<{
     group: string;
@@ -25,6 +36,58 @@ export type AnticipationFormShape = {
 };
 
 type TeamGroupLookup = Map<string, string | null | undefined> | Record<string, string | null | undefined>;
+
+export function getExactGroupQualifiedPoints(pointsPerTeam: number) {
+  return pointsPerTeam * 2;
+}
+
+export function calculateGroupQualifiedSelectionPoints({
+  firstTeamId,
+  secondTeamId,
+  officialTopTwo,
+  pointsPerTeam,
+}: {
+  firstTeamId: string | null | undefined;
+  secondTeamId: string | null | undefined;
+  officialTopTwo: string[];
+  pointsPerTeam: number;
+}) {
+  const firstHit = Boolean(firstTeamId && officialTopTwo.includes(firstTeamId));
+  const secondHit = Boolean(secondTeamId && officialTopTwo.includes(secondTeamId));
+  const exactOrder =
+    Boolean(firstTeamId) &&
+    Boolean(secondTeamId) &&
+    officialTopTwo.length >= 2 &&
+    firstTeamId === officialTopTwo[0] &&
+    secondTeamId === officialTopTwo[1];
+  const awardedPointsPerHit = exactOrder ? getExactGroupQualifiedPoints(pointsPerTeam) : pointsPerTeam;
+  const firstPoints = firstHit ? awardedPointsPerHit : 0;
+  const secondPoints = secondHit ? awardedPointsPerHit : 0;
+
+  return {
+    firstHit,
+    secondHit,
+    exactOrder,
+    hitCount: Number(firstHit) + Number(secondHit),
+    awardedPointsPerHit,
+    firstPoints,
+    secondPoints,
+    totalPoints: firstPoints + secondPoints,
+  };
+}
+
+export function getPotentialAnticipationPoints(scoring: AnticipationScoringShape) {
+  return (
+    16 * getExactGroupQualifiedPoints(scoring.groupQualifiedPoints) +
+    anticipationStageLimits.bestThirdTeamIds * scoring.bestThirdPoints +
+    anticipationStageLimits.roundOf32TeamIds * scoring.roundOf32Points +
+    anticipationStageLimits.roundOf16TeamIds * scoring.roundOf16Points +
+    anticipationStageLimits.quarterFinalTeamIds * scoring.quarterFinalPoints +
+    anticipationStageLimits.semiFinalTeamIds * scoring.semiFinalPoints +
+    anticipationStageLimits.finalTeamIds * scoring.finalPoints +
+    scoring.championPoints
+  );
+}
 
 function uniqueTeamIds(items: Array<string | null | undefined>) {
   return Array.from(new Set(items.filter((item): item is string => Boolean(item))));

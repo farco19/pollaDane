@@ -178,7 +178,7 @@ export default function OfficialStandingsPage() {
               <div className="mt-4 space-y-3 text-sm">
                 {[
                   ["Mejores terceros", data.standingsOverview?.official?.bestThirdTeams ?? []],
-                  ["16vos", data.standingsOverview?.official?.roundOf32Teams ?? []],
+                  ["Clasificados a 16vos", data.standingsOverview?.official?.roundOf32Teams ?? []],
                   ["Octavos", data.standingsOverview?.official?.roundOf16Teams ?? []],
                   ["Cuartos", data.standingsOverview?.official?.quarterFinalTeams ?? []],
                   ["Semifinal", data.standingsOverview?.official?.semiFinalTeams ?? []],

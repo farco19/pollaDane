@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
-import { anticipationStageLimits } from "@/lib/anticipation";
+import { getExactGroupQualifiedPoints, getPotentialAnticipationPoints } from "@/lib/anticipation";
 import { formatLongMatchDate } from "@/lib/match-datetime";
 import { apiFetch, formatCurrency } from "@/lib/utils";
 
@@ -234,19 +234,21 @@ export default function SettingsPage() {
 
             <div className="panel rounded-3xl p-6">
               <h2 className="text-xl font-semibold text-foreground">Puntos por anticipados</h2>
-              <p className="mt-2 text-sm text-muted-foreground">Los pronosticos anticipados se editan hasta el inicio del primer partido y suman por cada acierto.</p>
+              <p className="mt-2 text-sm text-muted-foreground">Los pronosticos anticipados se editan hasta el inicio del primer partido y suman por cada acierto. En grupos, acertar ambos clasificados en el orden exacto duplica el valor por equipo.</p>
               <div className="mt-5 grid gap-3 md:grid-cols-2">
                 <div>
-                  <label className="field-label">Top 2 de grupo</label>
+                  <label className="field-label">Top 2 de grupo (clasificados directos)</label>
                   <input type="number" min={0} value={String(form.anticipationScoring.groupQualifiedPoints)} onChange={(e) => updateNestedNumberField("anticipationScoring", "groupQualifiedPoints", e.target.value)} className="field-input" />
+                  <p className="mt-2 text-xs leading-5 text-muted-foreground">Premia acertar los 2 equipos que avanzan directamente desde cada grupo. Si aciertas ambos en el orden exacto, ese valor se duplica por equipo.</p>
                 </div>
                 <div>
                   <label className="field-label">Mejores terceros</label>
                   <input type="number" min={0} value={String(form.anticipationScoring.bestThirdPoints)} onChange={(e) => updateNestedNumberField("anticipationScoring", "bestThirdPoints", e.target.value)} className="field-input" />
                 </div>
                 <div>
-                  <label className="field-label">Pasa a 16vos</label>
+                  <label className="field-label">Clasificados a 16vos</label>
                   <input type="number" min={0} value={String(form.anticipationScoring.roundOf32Points)} onChange={(e) => updateNestedNumberField("anticipationScoring", "roundOf32Points", e.target.value)} className="field-input" />
+                  <p className="mt-2 text-xs leading-5 text-muted-foreground">Premia el grupo final de 32 clasificados a 16vos. Este bloque se arma automaticamente con los top 2 de cada grupo mas los mejores terceros.</p>
                 </div>
                 <div>
                   <label className="field-label">Pasa a octavos</label>
@@ -270,15 +272,11 @@ export default function SettingsPage() {
                 </div>
               </div>
               <p className="mt-4 text-xs leading-5 text-muted-foreground">
+                Con la configuracion actual, cada equipo del top 2 vale {form.anticipationScoring.groupQualifiedPoints} puntos si aciertas el clasificado y {getExactGroupQualifiedPoints(form.anticipationScoring.groupQualifiedPoints)} puntos si aciertas ambos en el orden exacto.
+              </p>
+              <p className="mt-4 text-xs leading-5 text-muted-foreground">
                 Maximo teorico en anticipados:{" "}
-                {16 * form.anticipationScoring.groupQualifiedPoints +
-                  anticipationStageLimits.bestThirdTeamIds * form.anticipationScoring.bestThirdPoints +
-                  anticipationStageLimits.roundOf32TeamIds * form.anticipationScoring.roundOf32Points +
-                  anticipationStageLimits.roundOf16TeamIds * form.anticipationScoring.roundOf16Points +
-                  anticipationStageLimits.quarterFinalTeamIds * form.anticipationScoring.quarterFinalPoints +
-                  anticipationStageLimits.semiFinalTeamIds * form.anticipationScoring.semiFinalPoints +
-                  anticipationStageLimits.finalTeamIds * form.anticipationScoring.finalPoints +
-                  form.anticipationScoring.championPoints}{" "}
+                {getPotentialAnticipationPoints(form.anticipationScoring)}{" "}
                 pts
               </p>
             </div>

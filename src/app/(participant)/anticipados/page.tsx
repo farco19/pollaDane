@@ -9,7 +9,9 @@ import { PageHeader } from "@/components/ui/page-header";
 import { DetailModal } from "@/components/ui/detail-modal";
 import {
   anticipationStageLimits,
+  getExactGroupQualifiedPoints,
   getAnticipationCandidatePools,
+  getPotentialAnticipationPoints,
   sanitizeAnticipationForm,
   type AnticipationFormShape,
 } from "@/lib/anticipation";
@@ -35,28 +37,6 @@ function createEmptyForm(groups: Array<{ group: string }>): AnticipationForm {
       championTeamId: null,
     },
   };
-}
-
-function getPotentialAnticipationPoints(scoring: {
-  groupQualifiedPoints: number;
-  bestThirdPoints: number;
-  roundOf32Points: number;
-  roundOf16Points: number;
-  quarterFinalPoints: number;
-  semiFinalPoints: number;
-  finalPoints: number;
-  championPoints: number;
-}) {
-  return (
-    16 * scoring.groupQualifiedPoints +
-    anticipationStageLimits.bestThirdTeamIds * scoring.bestThirdPoints +
-    anticipationStageLimits.roundOf32TeamIds * scoring.roundOf32Points +
-    anticipationStageLimits.roundOf16TeamIds * scoring.roundOf16Points +
-    anticipationStageLimits.quarterFinalTeamIds * scoring.quarterFinalPoints +
-    anticipationStageLimits.semiFinalTeamIds * scoring.semiFinalPoints +
-    anticipationStageLimits.finalTeamIds * scoring.finalPoints +
-    scoring.championPoints
-  );
 }
 
 function formatDateLabel(value: string | null) {
@@ -306,7 +286,7 @@ export default function AnticipationPage() {
       <PageHeader
         eyebrow="Anticipados"
         title="Pronosticos anticipados"
-        description="Define antes del primer partido tus clasificados por grupo, mejores terceros, quienes pasan a octavos y el campeon del torneo."
+        description="Define antes del primer partido tus clasificados por grupo, mejores terceros, quienes integran los 16vos, quienes pasan a octavos y el campeon del torneo."
       />
 
       <div className="panel rounded-3xl p-6">
@@ -351,16 +331,22 @@ export default function AnticipationPage() {
             <div className="panel-muted rounded-3xl p-5">
               <h2 className="text-lg font-semibold text-foreground">Resumen de puntos</h2>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Cada acierto suma por equipo. Al cambiar una fase, las selecciones incompatibles de las siguientes se limpian automaticamente.
+                En grupos, acertar un clasificado suma por equipo y acertar ambos en el orden exacto duplica ese valor. Los 16vos se forman automaticamente con tus top 2 y tus mejores terceros. Al cambiar una fase, las selecciones incompatibles de las siguientes se limpian automaticamente.
               </p>
               <div className="mt-4 space-y-3 text-sm">
                 <div className="flex items-center justify-between gap-4 rounded-2xl bg-card px-4 py-3">
-                  <span className="text-muted-foreground">Top 2 por grupo</span>
-                  <span className="font-semibold text-foreground">{data.settings.anticipationScoring.groupQualifiedPoints} pts</span>
+                  <span className="text-muted-foreground">Top 2 por grupo (clasificados directos)</span>
+                  <span className="font-semibold text-foreground">
+                    {data.settings.anticipationScoring.groupQualifiedPoints} pts por equipo, {getExactGroupQualifiedPoints(data.settings.anticipationScoring.groupQualifiedPoints)} pts si aciertas ambos en orden
+                  </span>
                 </div>
                 <div className="flex items-center justify-between gap-4 rounded-2xl bg-card px-4 py-3">
                   <span className="text-muted-foreground">Mejores terceros</span>
                   <span className="font-semibold text-foreground">{data.settings.anticipationScoring.bestThirdPoints} pts</span>
+                </div>
+                <div className="flex items-center justify-between gap-4 rounded-2xl bg-card px-4 py-3">
+                  <span className="text-muted-foreground">Clasificados a 16vos</span>
+                  <span className="font-semibold text-foreground">{data.settings.anticipationScoring.roundOf32Points} pts</span>
                 </div>
                 <div className="flex items-center justify-between gap-4 rounded-2xl bg-card px-4 py-3">
                   <span className="text-muted-foreground">Pasa a octavos</span>
@@ -388,18 +374,30 @@ export default function AnticipationPage() {
             <div className="panel-muted rounded-3xl p-5">
               <h2 className="text-lg font-semibold text-foreground">Potencial maximo</h2>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Si aciertas todo, este es el puntaje teorico que puedes conseguir solo con anticipados.
+                Si aciertas todo, este es el puntaje teorico que puedes conseguir solo con anticipados, incluyendo el bono por orden exacto en grupos.
               </p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 <div className="rounded-2xl bg-card px-4 py-4">
                   <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Top 2 grupos</p>
-                  <p className="mt-2 text-lg font-semibold text-foreground">{16 * data.settings.anticipationScoring.groupQualifiedPoints} pts</p>
+                  <p className="mt-2 text-lg font-semibold text-foreground">
+                    {16 * getExactGroupQualifiedPoints(data.settings.anticipationScoring.groupQualifiedPoints)} pts
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {getExactGroupQualifiedPoints(data.settings.anticipationScoring.groupQualifiedPoints)} pts por equipo si aciertas primero y segundo en el orden exacto
+                  </p>
                 </div>
                 <div className="rounded-2xl bg-card px-4 py-4">
                   <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Mejores terceros</p>
                   <p className="mt-2 text-lg font-semibold text-foreground">
                     {anticipationStageLimits.bestThirdTeamIds * data.settings.anticipationScoring.bestThirdPoints} pts
                   </p>
+                </div>
+                <div className="rounded-2xl bg-card px-4 py-4">
+                  <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">16vos</p>
+                  <p className="mt-2 text-lg font-semibold text-foreground">
+                    {anticipationStageLimits.roundOf32TeamIds * data.settings.anticipationScoring.roundOf32Points} pts
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">Se calcula automaticamente desde grupos y mejores terceros</p>
                 </div>
                 <div className="rounded-2xl bg-card px-4 py-4">
                   <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Octavos</p>
@@ -446,7 +444,7 @@ export default function AnticipationPage() {
             <div className="panel rounded-3xl p-6">
               <h2 className="text-xl font-semibold text-foreground">Clasificados por grupo</h2>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Elige primero y segundo de cada grupo. Se otorgan puntos por cada equipo correcto dentro del top 2, sin importar el orden.
+                Elige primero y segundo de cada grupo. Estos son tus clasificados directos. Si aciertas ambos en el orden exacto sumas {getExactGroupQualifiedPoints(data.settings.anticipationScoring.groupQualifiedPoints)} puntos por equipo; si aciertas ambos al reves o solo uno, sumas {data.settings.anticipationScoring.groupQualifiedPoints} puntos por equipo correcto.
               </p>
             </div>
 
@@ -547,11 +545,11 @@ export default function AnticipationPage() {
             <div className="panel rounded-3xl p-6">
               <h2 className="text-xl font-semibold text-foreground">Clasificados por fase</h2>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Primero se arma automaticamente el grupo de 32 clasificados con tus top 2 y tus mejores terceros. Desde ahi eliges quienes avanzan en cada fase.
+                Primero se arma automaticamente el grupo de 32 clasificados a 16vos con tus top 2 y tus mejores terceros. Desde ahi eliges quienes avanzan a octavos, cuartos, semifinal y final.
               </p>
             </div>
             {[
-              ["roundOf32TeamIds", "16vos", anticipationStageLimits.roundOf32TeamIds, roundOf32Candidates, "Solo usa equipos que clasificaste desde grupos y mejores terceros"],
+              ["roundOf32TeamIds", "Clasificados a 16vos", anticipationStageLimits.roundOf32TeamIds, roundOf32Candidates, "Se forman automaticamente con tus clasificados directos y tus mejores terceros"],
               ["roundOf16TeamIds", "Octavos de final", anticipationStageLimits.roundOf16TeamIds, roundOf16Candidates, "Solo usa equipos que elegiste para 16vos"],
               ["quarterFinalTeamIds", "Cuartos de final", anticipationStageLimits.quarterFinalTeamIds, quarterFinalCandidates, "Solo usa equipos que elegiste para octavos"],
               ["semiFinalTeamIds", "Semifinal", anticipationStageLimits.semiFinalTeamIds, semiFinalCandidates, "Solo usa equipos que elegiste para cuartos"],
@@ -692,7 +690,7 @@ export default function AnticipationPage() {
                               {selection.slot}: {selection.team ? selection.team.name : "Sin seleccionar"}
                             </span>
                             <span className={selection.hit ? "font-semibold text-primary" : "text-muted-foreground"}>
-                              {selection.hit ? `+${data.settings.anticipationScoring.groupQualifiedPoints}` : "0"}
+                              {selection.pointsAwarded ? `+${selection.pointsAwarded}` : "0"}
                             </span>
                           </div>
                         ))}

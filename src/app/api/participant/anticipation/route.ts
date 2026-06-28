@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { getAnticipationCandidatePools, sanitizeAnticipationForm, type AnticipationFormShape } from "@/lib/anticipation";
-import { buildAnticipationActuals } from "@/lib/server/scoring/anticipation";
+import { calculateGroupQualifiedSelectionPoints, getAnticipationCandidatePools, sanitizeAnticipationForm, type AnticipationFormShape } from "@/lib/anticipation";
+import { buildAnticipationActuals, calculateAnticipationPoints } from "@/lib/server/scoring/anticipation";
 import { bootstrapDataLayer } from "@/lib/server/data";
 import { fail, ok } from "@/lib/server/api";
 import { defaultAnticipationScoring } from "@/lib/server/scoring/rules";
@@ -190,9 +190,13 @@ function buildAnticipationBreakdown(
   const groupDetails = prediction.groupRankings.map((groupPrediction) => {
     const official = officialTopTwo.get(groupPrediction.group) ?? [];
     const resolved = (byGroup.get(groupPrediction.group) ?? []).length > 0 && (byGroup.get(groupPrediction.group) ?? []).every((match) => match.status === "finished");
-    const selectedIds = [groupPrediction.firstTeamId, groupPrediction.secondTeamId].filter((item): item is string => Boolean(item));
-    const hits = selectedIds.filter((teamId) => official.includes(teamId));
     const active = actuals.activation.groupQualified;
+    const groupPoints = calculateGroupQualifiedSelectionPoints({
+      firstTeamId: groupPrediction.firstTeamId,
+      secondTeamId: groupPrediction.secondTeamId,
+      officialTopTwo: official,
+      pointsPerTeam: scoring.groupQualifiedPoints,
+    });
 
     return {
       group: groupPrediction.group,
@@ -200,10 +204,16 @@ function buildAnticipationBreakdown(
       resolved,
       statusText: active
         ? resolved
-          ? "Top 2 oficial definido."
+          ? groupPoints.exactOrder
+            ? "Acierto exacto: acertaste ambos clasificados en el orden oficial."
+            : groupPoints.hitCount === 2
+              ? "Acertaste ambos clasificados, pero no en el orden oficial."
+              : groupPoints.hitCount === 1
+                ? "Acertaste uno de los dos clasificados oficiales."
+                : "No acertaste los clasificados oficiales de este grupo."
           : "Esta fase ya esta activa, pero este grupo sigue pendiente de definirse oficialmente."
         : "Estos puntos se activan cuando exista oficialmente al menos un partido de 16vos.",
-      pointsAwarded: active ? hits.length * scoring.groupQualifiedPoints : 0,
+      pointsAwarded: active ? groupPoints.totalPoints : 0,
       officialTopTwo: official.map((teamId) => teamSummary(teamMap.get(teamId))).filter(Boolean),
       currentTable: (currentStandings.get(groupPrediction.group) ?? []).map((entry) => ({
         ...teamSummary(teamMap.get(entry.teamId)),
@@ -215,12 +225,14 @@ function buildAnticipationBreakdown(
         {
           slot: "Primer clasificado",
           team: groupPrediction.firstTeamId ? teamSummary(teamMap.get(groupPrediction.firstTeamId)) : null,
-          hit: active && groupPrediction.firstTeamId ? official.includes(groupPrediction.firstTeamId) : false,
+          hit: active ? groupPoints.firstHit : false,
+          pointsAwarded: active ? groupPoints.firstPoints : 0,
         },
         {
           slot: "Segundo clasificado",
           team: groupPrediction.secondTeamId ? teamSummary(teamMap.get(groupPrediction.secondTeamId)) : null,
-          hit: active && groupPrediction.secondTeamId ? official.includes(groupPrediction.secondTeamId) : false,
+          hit: active ? groupPoints.secondHit : false,
+          pointsAwarded: active ? groupPoints.secondPoints : 0,
         },
       ],
     };
@@ -252,27 +264,7 @@ function buildAnticipationBreakdown(
   const championHit = Boolean(championActive && championId && actuals.championTeamId === championId);
 
   return {
-    totalPoints:
-      groupDetails.reduce((sum, group) => sum + group.pointsAwarded, 0) +
-      (actuals.activation.bestThird
-        ? prediction.stageSelections.bestThirdTeamIds.filter((teamId) => actuals.bestThirdTeamIds.has(teamId)).length * scoring.bestThirdPoints
-        : 0) +
-      (actuals.activation.roundOf32
-        ? prediction.stageSelections.roundOf32TeamIds.filter((teamId) => actuals.roundOf32TeamIds.has(teamId)).length * scoring.roundOf32Points
-        : 0) +
-      (actuals.activation.roundOf16
-        ? prediction.stageSelections.roundOf16TeamIds.filter((teamId) => actuals.roundOf16TeamIds.has(teamId)).length * scoring.roundOf16Points
-        : 0) +
-      (actuals.activation.quarterFinal
-        ? prediction.stageSelections.quarterFinalTeamIds.filter((teamId) => actuals.quarterFinalTeamIds.has(teamId)).length * scoring.quarterFinalPoints
-        : 0) +
-      (actuals.activation.semiFinal
-        ? prediction.stageSelections.semiFinalTeamIds.filter((teamId) => actuals.semiFinalTeamIds.has(teamId)).length * scoring.semiFinalPoints
-        : 0) +
-      (actuals.activation.final
-        ? prediction.stageSelections.finalTeamIds.filter((teamId) => actuals.finalTeamIds.has(teamId)).length * scoring.finalPoints
-        : 0) +
-      (championHit ? scoring.championPoints : 0),
+    totalPoints: calculateAnticipationPoints(prediction, actuals, scoring),
     groupDetails,
     bestThird: buildStageSection(
       prediction.stageSelections.bestThirdTeamIds,
@@ -286,7 +278,7 @@ function buildAnticipationBreakdown(
       prediction.stageSelections.roundOf32TeamIds,
       actuals.roundOf32TeamIds,
       scoring.roundOf32Points,
-      "16vos",
+      "Clasificados a 16vos",
       actuals.activation.roundOf32,
       "Estos puntos se activan cuando exista oficialmente al menos un partido de 16vos.",
     ),
@@ -478,13 +470,13 @@ export async function POST(request: Request) {
 
     for (const teamId of sanitizedPrediction.stageSelections.roundOf32TeamIds) {
       if (!candidatePools.roundOf32CandidateIds.includes(teamId)) {
-        return fail("En 16vos solo puedes elegir equipos clasificados desde grupos y mejores terceros", 400);
+        return fail("En clasificados a 16vos solo puedes usar equipos definidos desde grupos y mejores terceros", 400);
       }
     }
 
     for (const teamId of sanitizedPrediction.stageSelections.roundOf16TeamIds) {
       if (!candidatePools.roundOf16CandidateIds.includes(teamId)) {
-        return fail("En octavos solo puedes elegir equipos que seleccionaste para 16vos", 400);
+        return fail("En octavos solo puedes elegir equipos que seleccionaste para los clasificados a 16vos", 400);
       }
     }
 

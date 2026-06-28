@@ -95,7 +95,7 @@ export default function PredictionsPage() {
             <div>
               <h2 className="text-lg font-semibold text-foreground">Pronostico anticipado</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Revisa cuanto llevas sumado por clasificados, mejores terceros, octavos y campeon.
+                Revisa cuanto llevas sumado por clasificados directos, mejores terceros, 16vos, octavos y campeon.
               </p>
             </div>
             <button type="button" onClick={() => setAnticipationOpen(true)} className="btn-secondary">
@@ -196,7 +196,7 @@ export default function PredictionsPage() {
                 <div className="mt-3 space-y-2">
                   {group.selections.map((selection: any) => (
                     <div key={`${group.group}-${selection.slot}`} className="rounded-2xl bg-card px-4 py-3 text-sm text-muted-foreground">
-                      {selection.slot}: {selection.team ? selection.team.name : "Sin seleccionar"} {selection.hit ? `| +${anticipationData.settings.anticipationScoring.groupQualifiedPoints}` : "| 0"}
+                      {selection.slot}: {selection.team ? selection.team.name : "Sin seleccionar"} {selection.pointsAwarded ? `| +${selection.pointsAwarded}` : "| 0"}
                     </div>
                   ))}
                 </div>
@@ -205,6 +205,7 @@ export default function PredictionsPage() {
 
             {[
               anticipationData.breakdown.bestThird,
+              anticipationData.breakdown.roundOf32,
               anticipationData.breakdown.roundOf16,
               anticipationData.breakdown.quarterFinal,
               anticipationData.breakdown.semiFinal,
