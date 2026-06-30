@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { calculateGroupQualifiedSelectionPoints } from "@/lib/anticipation";
-import { getChampionTeamId, getGroupTopTwo, getOfficialBestThirdTeamIds, getQualifiedTeamIdsByStage } from "@/lib/server/tournament";
+import { getBestThirdTeamIds, getChampionTeamId, getGroupTopTwo, getOfficialBestThirdTeamIds, getQualifiedTeamIdsByStage } from "@/lib/server/tournament";
 
 function hasStageConfigured(matches: any[], stage: string) {
   return matches.some((match) => match.stage === stage);
@@ -11,6 +11,8 @@ export function buildAnticipationActuals(
   settings?: { officialBestThirdTeamIds?: Array<string | { toString(): string } | null | undefined> | null } | null,
 ) {
   const championTeamId = getChampionTeamId(matches);
+  const officialBestThirdTeamIds = getOfficialBestThirdTeamIds(settings);
+  const effectiveBestThirdTeamIds = officialBestThirdTeamIds.length === 8 ? officialBestThirdTeamIds : getBestThirdTeamIds(matches, 8);
 
   return {
     activation: {
@@ -24,7 +26,7 @@ export function buildAnticipationActuals(
       champion: Boolean(championTeamId),
     },
     groupTopTwo: getGroupTopTwo(matches),
-    bestThirdTeamIds: new Set(getOfficialBestThirdTeamIds(settings)),
+    bestThirdTeamIds: new Set(effectiveBestThirdTeamIds),
     roundOf32TeamIds: new Set(getQualifiedTeamIdsByStage(matches, "round_of_32")),
     roundOf16TeamIds: new Set(getQualifiedTeamIdsByStage(matches, "round_of_16")),
     quarterFinalTeamIds: new Set(getQualifiedTeamIdsByStage(matches, "quarter_final")),
